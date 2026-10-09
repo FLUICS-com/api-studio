@@ -280,6 +280,8 @@
     <h2 id="what-it-is">What it is</h2>
     <p>FLUICS CONNECT RestfulAPI Studio is a browser-based tool that lets you move data between spreadsheets and your FLUICS CONNECT inventory in bulk, without touching the FLUICS web interface one item at a time.</p>
 
+    <img src="img/01-overview.png" alt="Import tab with pasted rows mapped to workspace properties" class="screenshot">
+    <p class="caption">The Import tab: pasted rows, each column mapped to a workspace property.</p>
     <p>Switch between Import, Export, and Bulk Edit using the tab buttons in the header.</p>
 
     <table>
@@ -317,6 +319,8 @@
     <p>Then open <code>http://localhost:8080/fc-studio.html</code> in your browser.</p>
 
     <h3 id="credentials">Enter your API credentials</h3>
+    <img src="img/02-header.png" alt="Header: workspace name, Manual, Download config, Upload config, API credentials" class="screenshot" width="232">
+    <p class="caption">Connected workspace (green dot) and the header icons.</p>
     <p>Top-right header icons (left to right): <strong>Manual</strong> &nbsp;·&nbsp; <strong>Download config</strong> &nbsp;·&nbsp; <strong>Upload config</strong> &nbsp;·&nbsp; <strong>API credentials</strong></p>
     <p>Click the <strong>gear icon</strong> (far right) to open the API Credentials dialog.</p>
     <table>
@@ -328,6 +332,8 @@
       </tbody>
     </table>
     <div class="callout"><strong>Security note:</strong> Credentials are stored only in your browser's local storage and are never included in configuration exports. They are never transmitted to any server other than <code>api.fluics.com</code> (via the proxy).</div>
+    <img src="img/03-credentials.png" alt="API Credentials dialog" class="screenshot" width="480">
+    <p class="caption">The API Credentials dialog (gear icon, top right).</p>
 
 
     <!-- ── Import ── -->
@@ -348,6 +354,8 @@
           </tbody>
         </table>
         <p>Which columns become which properties is decided in box 2 (mapping), not here.</p>
+        <img src="img/05-import-settings.png" alt="Import settings: separator, date format, location" class="screenshot">
+        <p class="caption">Box 1 Import settings, opened.</p>
       </div>
     </div>
 
@@ -369,6 +377,8 @@
         <p>The preview (box 3) follows the mapping immediately. Changing the mapping rebuilds the preview rows, so edits made in the preview for those rows are replaced. Under each preview column header a small note shows where the values came from.</p>
         <p><strong>Integer and decimal values with units:</strong> either map a separate unit column to <em>… · unit</em>, or write value and unit in one cell (<em>5 mL</em>, <em>5,5 mL</em>), which is split automatically. For cells without a unit, the <em>unit</em> field under the value column sets a default (pre-filled with the workspace unit). Decimal commas and thousands separators are understood (<em>1.234,5</em> and <em>1,234.5</em> both become 1234.5).</p>
         <p><strong>Dates:</strong> ISO dates (<em>2027-02-03</em>) and real date cells in Excel files are always understood; other text is read with the <em>Date format</em> setting (e.g. <em>03.02.2027</em> for DD.MM.YYYY). Impossible dates are reported as an error for that property.</p>
+        <img src="img/04-import-paste.png" alt="Pasted data with a mapping dropdown per column" class="screenshot">
+        <p class="caption">Box 2: pasted rows with the mapping dropdown above each column.</p>
       </div>
     </div>
 
@@ -385,6 +395,8 @@
           <li><strong>Clear All</strong> removes all rows from the preview.</li>
         </ul>
         <p>Hovering over a filled cell reveals the "Apply to all items" link below it. Cells highlighted in orange had special characters stripped from the Item Name.</p>
+        <img src="img/06-import-preview.png" alt="Import preview with derived item names" class="screenshot">
+        <p class="caption">Box 3: the preview. The Item Name is derived from the Full name; orange cells had characters removed.</p>
       </div>
     </div>
 
@@ -436,6 +448,8 @@
       <div class="step-body">
         <h3 id="bulk-run">Preview &amp; apply</h3>
         <p>The Bulk Edit tab has the same three-box layout as Import and Export: <strong>1 · Select items</strong>, <strong>2 · Choose action</strong>, <strong>3 · Preview &amp; apply</strong>. Box 3 lists every item with its current and new value; the notes under its header say which items are skipped and why. Click <strong>Apply to N items</strong> in the toolbar of box 3; the edit starts right away (check the preview first). A progress window logs the result per item. Afterwards the table shows each item's previous value, its value now and a <em>Result</em> column; as soon as you change the property, value or location it switches back to the preview. If some items failed, <strong>Retry N failed</strong> sends only those again.</p>
+        <img src="img/08-bulk-edit.png" alt="Bulk Edit: four items, new Description value, preview before applying" class="screenshot">
+        <p class="caption">Bulk Edit: items selected by Label ID, a new Description value, and the before/after preview.</p>
       </div>
     </div>
 
@@ -509,6 +523,8 @@ fcs.re/?aBcDeF
           </tbody>
         </table>
 
+        <img src="img/07-export.png" alt="Export: Gridify search and result table" class="screenshot">
+        <p class="caption">Export: items selected with a Gridify search, columns set up in the table header.</p>
         <h3 id="export-header">Header row on or off</h3>
         <p>Box 1 (Export settings) has the option <strong>Include header row</strong>. Leave it ticked to get the column names in the first row. Untick it when you are pasting into a sheet that already has its own headers, for example a customer template where the first rows are fixed. The setting applies to both Copy for Excel and Export CSV, and it travels with the configuration file.</p>
       </div>
@@ -516,6 +532,8 @@ fcs.re/?aBcDeF
 
     <!-- ── Config ── -->
     <h2 id="config">Configuration management</h2>
+    <img src="img/02-header.png" alt="Header: workspace name, Manual, Download config, Upload config, API credentials" class="screenshot" width="232">
+    <p class="caption">Connected workspace (green dot) and the header icons.</p>
     <p>Top-right header icons (left to right): <strong>Manual</strong> &nbsp;·&nbsp; <strong>Download config</strong> &nbsp;·&nbsp; <strong>Upload config</strong> &nbsp;·&nbsp; <strong>API credentials</strong></p>
     <p>The download and upload icons let you save and restore your settings as a JSON file.</p>
     <table>
