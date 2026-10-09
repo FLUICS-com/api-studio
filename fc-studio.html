@@ -730,6 +730,28 @@ input.main-input-line:focus { border-color: var(--blue); }
 #update-banner a {
   color: #7eb3ff; font-weight: 600; cursor: pointer; text-decoration: underline;
 }
+
+/* ── Dropdown chevrons ───────────────────────────────────────────────────────── */
+/* All selects and combo boxes use the same chevron, 0.7rem from the edge (like
+   PRINT Studio) instead of the browser arrow at the edge. !important beats the
+   `background: white` shorthand of the table selects. */
+select {
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right 0.7rem center !important; background-size: 1rem 1rem !important;
+  padding-right: 2.25rem !important;
+}
+.imap-select, .exp-col-select, .imap-rowsel, .imap-type {
+  background-position: right 0.45rem center !important; background-size: 0.85rem 0.85rem !important;
+  padding-right: 1.6rem !important;
+}
+.combo-caret {
+  right: 0.45rem; width: 1.5rem; height: 1.5rem; font-size: 0; color: transparent;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E") no-repeat center / 1rem 1rem;
+}
+.combo-caret:hover { background-color: #f0f2f8; border-radius: 6px; }
+.clr-wrap.has-combo > .clr-btn { right: 2.25rem; }
+.clr-wrap.has-combo > .has-clr { padding-right: 3.9rem !important; }
 </style>
 </head>
 <body>
@@ -1284,7 +1306,7 @@ function makeCombo(input, getOptions, cfg = {}) {
   const wrap = input.parentNode;
   wrap.classList.add('has-combo');
   const caret = document.createElement('button');
-  caret.type = 'button'; caret.className = 'combo-caret'; caret.tabIndex = -1; caret.textContent = '▾';
+  caret.type = 'button'; caret.className = 'combo-caret'; caret.tabIndex = -1; caret.title = 'Show all';
   const menu = document.createElement('div');
   menu.className = 'combo-menu';
   wrap.append(caret, menu);
