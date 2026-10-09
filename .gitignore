@@ -1,0 +1,4 @@
+# Exports from the app
+fc-studio-config-*.json
+fluics-export-*.csv
+.DS_Store

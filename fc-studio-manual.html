@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLUICS CONNECT RestfulAPI Studio, User Manual</title>
+<style>
+  :root {
+    --blue:       #4a7ce8;
+    --blue-light: #eef2ff;
+    --text:       #1a1a2e;
+    --bg:         #f0f2f5;
+    --border:     #e0e0e0;
+    --muted:      #888;
+    --radius:     12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.65;
+  }
+  /* ── Header ── */
+  .site-header {
+    background: white;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .site-header h1 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .site-header h1 span { font-size: 0.7rem; font-weight: 400; color: #bbb; margin-left: 6px; }
+  .back-link {
+    font-size: 0.82rem;
+    color: var(--blue);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .back-link:hover { text-decoration: underline; }
+  /* ── Layout ── */
+  .layout {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  /* ── Notice at the end ── */
+  .manual-footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); line-height: 1.8; }
+  .manual-footer a { color: inherit; text-decoration: underline; }
+  /* ── Sidebar TOC ── */
+  .toc {
+    position: sticky;
+    top: 65px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+  }
+  .toc-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .toc a {
+    display: block;
+    font-size: 0.82rem;
+    color: #555;
+    text-decoration: none;
+    padding: 3px 0;
+    border-left: 2px solid transparent;
+    padding-left: 8px;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .toc a:hover { color: var(--blue); border-color: var(--blue); }
+  .toc a.sub { padding-left: 18px; color: #888; font-size: 0.79rem; }
+  /* ── Content ── */
+  .content h1 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .content .subtitle {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 28px;
+  }
+  .content h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 40px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--blue-light);
+  }
+  .content h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+  .content p { margin-bottom: 12px; }
+  .content ul, .content ol {
+    margin: 8px 0 12px 20px;
+  }
+  .content li { margin-bottom: 4px; }
+  /* ── Tables ── */
+  .content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 16px;
+    font-size: 0.88rem;
+  }
+  .content th {
+    background: var(--blue-light);
+    color: var(--text);
+    font-weight: 700;
+    text-align: left;
+    padding: 8px 12px;
+    border: 1px solid #d0d8f8;
+  }
+  .content td {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .content tr:nth-child(even) td { background: #fafbff; }
+  /* ── Code ── */
+  .content code {
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 0.82rem;
+    background: #f3f4f8;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .content pre {
+    background: #1a1a2e;
+    color: #e8eaf6;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 10px 0 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 0.83rem;
+    line-height: 1.5;
+  }
+  .content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+  /* ── Callouts ── */
+  .callout {
+    background: var(--blue-light);
+    border-left: 4px solid var(--blue);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 0.88rem;
+  }
+  .callout strong { color: var(--blue); }
+  /* ── Steps ── */
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+    align-items: flex-start;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    background: var(--blue);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; }
+  .step-body h3 { margin-top: 0; }
+  /* ── Screenshots ── */
+  .screenshot {
+    display: block;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin: 14px 0 4px;
+  }
+  .caption {
+    font-size: 0.76rem;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+  /* ── Responsive ── */
+  @media (max-width: 680px) {
+    .layout { grid-template-columns: 1fr; }
+    .toc { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.3</span></h1>
+  <a href="fc-studio.html" class="back-link">
+    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+    Back to App
+  </a>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar TOC -->
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#what-it-is">What it is</a>
+    <a href="#setup">Setup</a>
+    <a href="#setup" class="sub">What you need</a>
+    <a href="#api-reference" class="sub">API reference</a>
+    <a href="#customising" class="sub">Adapting the app</a>
+    <a href="#credentials" class="sub">API credentials</a>
+    <a href="#import">Import module</a>
+    <a href="#import-cols" class="sub">Configure columns</a>
+    <a href="#import-paste" class="sub">Paste or upload data</a>
+    <a href="#import-preview" class="sub">Preview &amp; edit</a>
+    <a href="#import-run" class="sub">Run import</a>
+    <a href="#bulk">Bulk Edit module</a>
+    <a href="#bulk-select" class="sub">Select items</a>
+    <a href="#bulk-actions" class="sub">Choose an action</a>
+    <a href="#bulk-run" class="sub">Preview &amp; apply</a>
+    <a href="#export">Export module</a>
+    <a href="#export-cols" class="sub">Export settings</a>
+    <a href="#export-fetch" class="sub">Columns, results &amp; export</a>
+    <a href="#export-header" class="sub">Header row on/off</a>
+    <a href="#config">Configuration files</a>
+    <a href="#datatypes">Data types reference</a>
+    <a href="#tips">Tips &amp; gotchas</a>
+    <a href="#changelog">Changes in v1.3</a>
+  </nav>
+
+  <!-- Main content -->
+  <main class="content">
+
+    <h1>User Manual</h1>
+    <p class="subtitle">FLUICS CONNECT RestfulAPI Studio: for lab scientists comfortable with Excel, no API experience required.</p>
+
+    <!-- ── What it is ── -->
+    <h2 id="what-it-is">What it is</h2>
+    <p>FLUICS CONNECT RestfulAPI Studio is a browser-based tool that lets you move data between spreadsheets and your FLUICS CONNECT inventory in bulk, without touching the FLUICS web interface one item at a time.</p>
+
+    <p>Switch between Import, Export, and Bulk Edit using the tab buttons in the header.</p>
+
+    <table>
+      <thead><tr><th>Module</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Import</strong></td><td>Paste rows from Excel or a CSV, map the columns, preview the result, and register new items in FLUICS CONNECT.</td></tr>
+        <tr><td><strong>Export</strong></td><td>Paste a list of Label IDs or UUIDs (or use a Gridify search), choose which fields to pull, and get a table you can copy straight into Excel or save as CSV.</td></tr>
+        <tr><td><strong>Bulk Edit</strong></td><td>Select items by Label ID, UUID or Gridify search, then set a property value or move them to another location, with a before/after preview.</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ── Setup ── -->
+    <h2 id="setup">Setup</h2>
+
+    <h3>Quickest start</h3>
+    <p>The latest version is hosted at <a href="https://link.fluics.com/apistudio" target="_blank">link.fluics.com/apistudio</a>: open it in Chrome or Firefox and you're ready. No installation needed. The source code is at <a href="https://github.com/FLUICS-com/api-studio" target="_blank">github.com/FLUICS-com/api-studio</a>.</p>
+
+    <h3>What you need</h3>
+    <ul>
+      <li><strong>A FLUICS CONNECT API key (Key ID + Secret), required.</strong> Obtain it from FLUICS. Without it the app cannot connect to your workspace.</li>
+      <li>A modern browser (Chrome or Firefox recommended).</li>
+    </ul>
+
+    <h3 id="api-reference">API reference</h3>
+    <p>The app communicates with the <strong>FLUICS CONNECT REST API</strong>. The full endpoint reference is available in the Swagger UI at <a href="https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC" target="_blank">devapi.fluics.com/swagger (V2.0-PUBLIC)</a>. Refer to it if you want to understand what data fields are available or extend the app for your own workflow.</p>
+
+    <h3 id="customising">Adapting the app to your needs</h3>
+    <p>The entire application is a single HTML file (<code>fc-studio.html</code>) with all JavaScript and CSS inline: no build step, no dependencies. You can open it in any text editor, adjust column defaults, add new system fields, change the UI, or hook into additional API endpoints. Changes take effect immediately on reload.</p>
+    <div class="callout"><strong>Tip:</strong> Export your current configuration (the download icon in the top-right header) before making changes. That way you can restore your column layout quickly if anything breaks.</div>
+
+    <h3>Self-hosting (optional)</h3>
+    <p>If you prefer to run the app on your own server or machine, place <code>fc-studio.html</code> and <code>fc-studio-proxy.php</code> in the same folder on any PHP-capable web server.</p>
+    <p>To run locally with PHP installed, open a terminal in that folder and run:</p>
+    <pre><code>php -S localhost:8080</code></pre>
+    <p>Then open <code>http://localhost:8080/fc-studio.html</code> in your browser.</p>
+
+    <h3 id="credentials">Enter your API credentials</h3>
+    <p>Top-right header icons (left to right): <strong>Manual</strong> &nbsp;·&nbsp; <strong>Download config</strong> &nbsp;·&nbsp; <strong>Upload config</strong> &nbsp;·&nbsp; <strong>API credentials</strong></p>
+    <p>Click the <strong>gear icon</strong> (far right) to open the API Credentials dialog.</p>
+    <table>
+      <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+      <tbody>
+        <tr><td>Key ID</td><td>Your API key identifier, e.g. <code>user@lab.com-keyAbc</code></td></tr>
+        <tr><td>Secret</td><td>Your API key secret</td></tr>
+        <tr><td>Proxy URL</td><td>Leave blank when running from the same folder as <code>fc-studio-proxy.php</code>. Otherwise enter the full URL, e.g. <code>https://yourserver.com/fc-studio-proxy.php?p=</code></td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>Security note:</strong> Credentials are stored only in your browser's local storage and are never included in configuration exports. They are never transmitted to any server other than <code>api.fluics.com</code> (via the proxy).</div>
+
+
+    <!-- ── Import ── -->
+    <h2 id="import">Import module</h2>
+    <p>Use this to register new items in FLUICS CONNECT from spreadsheet data.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3 id="import-cols">Import settings</h3>
+        <p>The Import tab has three boxes: <strong>1 · Import settings</strong>, <strong>2 · Paste or upload data</strong> and <strong>3 · Preview</strong>. The settings box is closed by default and shows a one-line summary; click it to open. Changes are saved automatically (a short "Saved" note confirms it).</p>
+        <table>
+          <thead><tr><th>Setting</th><th>Options</th></tr></thead>
+          <tbody>
+            <tr><td>Column separator for pasted values</td><td>For pasted text: Tab (default from Excel/Sheets), Comma, Semicolon. CSV files are detected automatically.</td></tr>
+            <tr><td>Date format</td><td>How date text is read: ISO 8601 (<code>YYYY-MM-DD</code>), with time, or EU/US Excel formats. ISO dates and real Excel date cells always work.</td></tr>
+            <tr><td>Location (optional)</td><td>All imported items are placed here. Click <strong>Browse</strong> to pick it from the location tree, or paste its ID.</td></tr>
+          </tbody>
+        </table>
+        <p>Which columns become which properties is decided in box 2 (mapping), not here.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3 id="import-paste">Paste or upload your data</h3>
+        <p>Either copy rows from Excel and paste them into the text area, then click <strong>Parse &amp; Preview</strong>, or click <strong>Upload .xlsx / .csv</strong> (or drop the file on the text area). Excel files with several sheets show a sheet selector; switching sheets replaces the rows of the previous sheet. Pasted text uses the <em>Column separator</em> setting; the separator of CSV files is detected automatically.</p>
+        <p>The text stays in the box, and uploaded sheets are shown there too. Below it, the <strong>detected data</strong> appears: the rows and columns exactly as they were read, with row numbers.</p>
+        <p><strong>Header and data rows:</strong> <em>Column names in</em> sets the row with the column names (or <em>no row</em> if there is none), <em>Data starts at</em> the first row with items. The app guesses both: the header is the first of the top 5 rows that fills at least half of the columns and has no numbers or dates, so a title row above the table is skipped. The table shows the column names once (under the dropdowns, with their row number) and then only the data rows; rows above the data start that are not the header (title rows, a units row) are listed as <em>skipped</em> and not imported. Changing the header row sets the data start to the first non-empty row below it. Row numbers match the rows in Excel; empty rows are never imported and are hidden in the table.</p>
+        <p><strong>Mapping:</strong> above each detected column a dropdown sets what it becomes:</p>
+        <ul>
+          <li><strong>Ignore</strong>: not imported (the column is greyed out).</li>
+          <li><strong>Full name</strong>: required; the 3×8-character Item name is derived from it.</li>
+          <li><strong>A property</strong> from your workspace (Integer and Decimal properties appear twice: <em>· value</em> and <em>· unit</em>). The list is loaded from FLUICS once and cached; <strong>↻ Property list</strong> reloads it.</li>
+          <li><strong>+ New property…</strong>: asks for a name (the column header is suggested); pick its data type in the small dropdown under the column.</li>
+        </ul>
+        <p>Columns are suggested automatically: by name (<em>Lot number</em>, <em>Volume (value)</em> / <em>Volume (unit)</em> as Export writes them, <em>Volume unit</em>, <em>Volume Einheit</em>, <em>Name</em> for Full name), and your own choices are remembered for the next time (per column name, or per column position when there is no header row). Each property can only come from one column.</p>
+        <p>The preview (box 3) follows the mapping immediately. Changing the mapping rebuilds the preview rows, so edits made in the preview for those rows are replaced. Under each preview column header a small note shows where the values came from.</p>
+        <p><strong>Integer and decimal values with units:</strong> either map a separate unit column to <em>… · unit</em>, or write value and unit in one cell (<em>5 mL</em>, <em>5,5 mL</em>), which is split automatically. For cells without a unit, the <em>unit</em> field under the value column sets a default (pre-filled with the workspace unit). Decimal commas and thousands separators are understood (<em>1.234,5</em> and <em>1,234.5</em> both become 1234.5).</p>
+        <p><strong>Dates:</strong> ISO dates (<em>2027-02-03</em>) and real date cells in Excel files are always understood; other text is read with the <em>Date format</em> setting (e.g. <em>03.02.2027</em> for DD.MM.YYYY). Impossible dates are reported as an error for that property.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3 id="import-preview">Preview &amp; edit</h3>
+        <p>The preview table shows every item that will be created.</p>
+        <ul>
+          <li><strong>Click any cell</strong> to edit it inline.</li>
+          <li><strong>Item Name</strong> (the 3-line label text) is auto-derived from the Full name; only letters, numbers, and spaces allowed. Cells highlighted in orange contain characters that were stripped.</li>
+          <li><strong>Apply to all items:</strong> hover over any non-empty editable cell to reveal a small link below it; click it to copy that value to every row in the same column. Useful for batch-setting a unit, category, or lot number.</li>
+          <li><strong>Delete a row</strong> with the ✕ button on the left.</li>
+          <li><strong>Clear All</strong> removes all rows from the preview.</li>
+        </ul>
+        <p>Hovering over a filled cell reveals the "Apply to all items" link below it. Cells highlighted in orange had special characters stripped from the Item Name.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3 id="import-run">Import</h3>
+        <p>Click <strong>Import to FLUICS CONNECT</strong>. A progress dialog shows each item as it is created. Errors are listed with the reason. The dialog stays open when finished; click <strong>Close</strong> when done.</p>
+      </div>
+    </div>
+
+    <!-- ── Bulk Edit ── -->
+    <h2 id="bulk">Bulk Edit module</h2>
+    <p>Use this to change many existing items at once: set a property value or move items to another location.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3 id="bulk-select">Select items</h3>
+        <p>Choose how to pick the items with the toggle in the top right of the card:</p>
+        <table>
+          <thead><tr><th>Mode</th><th>When to use</th></tr></thead>
+          <tbody>
+            <tr><td>Label IDs / UUIDs</td><td>Paste one per line. Scanned links (<code>fcs.re/?aB3dE9</code>) work too. Duplicates are removed; archived items are listed as <em>Archived</em> and not edited.</td></tr>
+            <tr><td>Gridify search</td><td>Type a filter, e.g. <code>(isArchived=false,name=*LabelName/i)</code> (<code>/i</code> = ignore case, <code>*</code> = contains). The same search is available in the Export tab. Comma means AND, <code>|</code> means OR, parentheses group. Click one of the examples below the field to start from it, or build the query with the query builder of the Advanced search in the FLUICS CONNECT web app and paste it (see the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>). Archived items are included; add <code>,isArchived=false</code> to leave them out. Up to 1,000 matches are loaded.</td></tr>
+          </tbody>
+        </table>
+        <p>Click <strong>Load items</strong>. The table at the bottom lists every item found; IDs that could not be found are shown in red. Click an ID to open the item in FLUICS CONNECT in a new tab. Remove single rows with the <strong>&times;</strong> button.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3 id="bulk-actions">Choose an action</h3>
+        <table>
+          <thead><tr><th>Action</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>Set value</td><td>Pick a property (click <strong>From FLUICS</strong> to list the workspace properties) and enter the new value. Items that don&rsquo;t have the property yet get it. The data type is taken from the existing property; for a new one, choose it. Numbers accept a unit, dates use a date picker, multi-value lists take <code>value;value</code> and replace the old list. Suggestions show the 20 most common values among the loaded items.</td></tr>
+            <tr><td>Move to location</td><td>Click <strong>Browse</strong> and pick the target location from the location tree (type to filter; parent locations of matches stay visible, IDs appear with <em>Show IDs</em>), or <em>Workspace root</em>. Items are moved in batches of 100; if one item in a batch cannot be moved, that batch is left unchanged.</td></tr>
+          </tbody>
+        </table>
+        <p>Box 3 shows the current and new value for every item. Items that already have the new value are skipped.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3 id="bulk-run">Preview &amp; apply</h3>
+        <p>The Bulk Edit tab has the same three-box layout as Import and Export: <strong>1 · Select items</strong>, <strong>2 · Choose action</strong>, <strong>3 · Preview &amp; apply</strong>. Box 3 lists every item with its current and new value; the notes under its header say which items are skipped and why. Click <strong>Apply to N items</strong> in the toolbar of box 3; the edit starts right away (check the preview first). A progress window logs the result per item. Afterwards the table shows each item's previous value, its value now and a <em>Result</em> column; as soon as you change the property, value or location it switches back to the preview. If some items failed, <strong>Retry N failed</strong> sends only those again.</p>
+      </div>
+    </div>
+
+    <!-- ── Export ── -->
+    <h2 id="export">Export module</h2>
+    <p>Use this to pull item data out of FLUICS CONNECT into a table.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3 id="export-cols">Export settings</h3>
+        <p>The Export tab has the same layout as Import: <strong>1 · Export settings</strong>, <strong>2 · Select items</strong> and <strong>3 · Columns &amp; results</strong>. The settings box is closed by default and shows a one-line summary; click it to open. Changes are saved immediately.</p>
+        <ul>
+          <li><strong>Date format</strong>: how date/time values appear in the table and the output.</li>
+          <li><strong>Include header row</strong>: see <a href="#export-header">Header row on or off</a>.</li>
+        </ul>
+        <p>The columns are set up in box 3, see below.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Select items</h3>
+        <p>Use the switch on the Export card to choose how items are selected:</p>
+        <table>
+          <thead><tr><th>Mode</th><th>When to use</th></tr></thead>
+          <tbody>
+            <tr><td>Label IDs / UUIDs</td><td>You have the items' Label IDs (e.g. <code>aB3dE9</code>), scanned barcode URLs (<code>fcs.re/?aB3dE9</code>), or UUIDs.</td></tr>
+            <tr><td>Gridify search</td><td>You want all items matching a search query, e.g. <code>(isArchived=false,name=*LabelName/i)</code>. Build it with the query builder of the Advanced search in the FLUICS CONNECT web app (see the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>) or click one of the examples below the field. Up to 1,000 matches are loaded.</td></tr>
+          </tbody>
+        </table>
+        <p>For Label IDs / UUIDs, paste one identifier per line:</p>
+        <pre><code>aB3dE9
+Xy7Kq2
+fcs.re/?aBcDeF
+3f2a9c1e-5b7d-4e8a-9c0b-1a2b3c4d5e6f</code></pre>
+        <p>Accepted formats: Label ID, full <code>fcs.re</code> URL, or UUID.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3 id="export-fetch">Columns, results and export</h3>
+        <p>Click <strong>Load items</strong>. A progress bar shows how many items have been retrieved. Errors appear inline in the result table.</p>
+        <p><strong>Columns</strong> are set up directly in the header row of the table, before or after loading (the values fill in from the loaded items, no reload needed):</p>
+        <ul>
+          <li>The <strong>dropdown</strong> of a column chooses what it shows: <em>(empty column)</em>, a system field, or a property (Integer and Decimal properties as <em>Name (value)</em> and <em>Name (unit)</em>). <em>+ Other property…</em> takes any property name.</li>
+          <li><strong>⠿</strong>: drag the column onto another column header to move it. <strong>×</strong> removes it. <strong>+ Add column</strong> adds one at the end, <strong>+ All properties</strong> adds every workspace property not shown yet, <strong>↻ Property list</strong> reloads the list of properties.</li>
+          <li><strong>Empty columns</strong> can get a header name (the field under the dropdown) and their cells can be filled in, e.g. a "Checked by" column.</li>
+        </ul>
+        <p><strong>Every cell can be edited</strong> before copying or downloading: click it and type. Edited cells are highlighted and go into Copy for Excel and Export CSV. Changing what a column shows discards the edits in that column.</p>
+        <p>System fields:</p>
+        <table>
+          <thead><tr><th>Field</th><th>What it returns</th></tr></thead>
+          <tbody>
+            <tr><td>ID (web link)</td><td>Clickable web link to the item (<code>https://fcs.re/?LID</code>)</td></tr>
+            <tr><td>Storage Location</td><td>Full path of the storage location (e.g. <em>Helmholtz / Freezer -80 / Rack 2</em>), or <em>Workspace root</em> for items without a location</td></tr>
+            <tr><td>Item Owner</td><td>First + last name of the registered owner</td></tr>
+            <tr><td>Registration Date</td><td>Registration date (formatted per your date setting)</td></tr>
+            <tr><td>Item Name</td><td>The short printed label name</td></tr>
+          </tbody>
+        </table>
+        <table>
+          <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Copy for Excel</strong></td><td>Copies tab-separated data to clipboard; paste directly into Excel or Google Sheets</td></tr>
+            <tr><td><strong>Export CSV</strong></td><td>Downloads a <code>.csv</code> file</td></tr>
+            <tr><td><strong>Clear</strong></td><td>Clears the result table</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="export-header">Header row on or off</h3>
+        <p>Box 1 (Export settings) has the option <strong>Include header row</strong>. Leave it ticked to get the column names in the first row. Untick it when you are pasting into a sheet that already has its own headers, for example a customer template where the first rows are fixed. The setting applies to both Copy for Excel and Export CSV, and it travels with the configuration file.</p>
+      </div>
+    </div>
+
+    <!-- ── Config ── -->
+    <h2 id="config">Configuration management</h2>
+    <p>Top-right header icons (left to right): <strong>Manual</strong> &nbsp;·&nbsp; <strong>Download config</strong> &nbsp;·&nbsp; <strong>Upload config</strong> &nbsp;·&nbsp; <strong>API credentials</strong></p>
+    <p>The download and upload icons let you save and restore your settings as a JSON file.</p>
+    <table>
+      <thead><tr><th>Icon</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>&#8595; (Download)</td><td>Export configuration to a <code>.json</code> file</td></tr>
+        <tr><td>&#8593; (Upload)</td><td>Import a previously saved <code>.json</code> file</td></tr>
+      </tbody>
+    </table>
+    <p>The configuration file includes import column definitions, delimiter, date format, location assignment, export column definitions, input mode, search property, date format, and the header row setting.</p>
+    <p>Older configuration files still work. Anything saved before the header row option existed simply loads with the header row switched on, exactly as it behaved then.</p>
+    <div class="callout"><strong>Not included:</strong> API credentials (Key ID and Secret). These stay in your browser and must be entered separately on each machine. Share the config file with colleagues so everyone uses the same column layout.</div>
+
+    <!-- ── Data types ── -->
+    <h2 id="datatypes">Data types reference</h2>
+    <table>
+      <thead><tr><th>Data Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Text</strong></td><td>Free text.</td></tr>
+        <tr><td><strong>Single-value list</strong></td><td>One value from a pre-defined list.</td></tr>
+        <tr><td><strong>Multi-value list</strong></td><td>Multiple values, separated by semicolons: <code>value1;value2;value3</code></td></tr>
+        <tr><td><strong>Integer (value | unit)</strong></td><td>Whole number. Requires <strong>two columns</strong>: one for the number (<code>Quantity (value)</code>), one for the unit (<code>Quantity (unit)</code>).</td></tr>
+        <tr><td><strong>Decimal (value | unit)</strong></td><td>Decimal number. Same two-column requirement as Integer.</td></tr>
+        <tr><td><strong>Date / Time</strong></td><td>Formatted according to your date format setting.</td></tr>
+        <tr><td><strong>Barcode</strong></td><td>Text treated as a barcode value.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Integer and Decimal: the two-column rule</h3>
+    <p>When you define a property of type Integer or Decimal, the app automatically creates <strong>two columns</strong>: one named <code>PropertyName (value)</code> and one named <code>PropertyName (unit)</code>.</p>
+    <ul>
+      <li><strong>Import:</strong> paste the number in the <code>(value)</code> column and the unit (e.g. <code>kg</code>, <code>mL</code>) in the <code>(unit)</code> column.</li>
+      <li><strong>Export:</strong> the <code>(value)</code> column shows the number; the <code>(unit)</code> column shows the unit as stored in FLUICS CONNECT. If the unit column is empty, click <strong>↻ Property list</strong> in box 3 and choose the <em>(unit)</em> column again to re-link the stored unit.</li>
+    </ul>
+
+    <!-- ── Tips ── -->
+    <h2 id="tips">Tips &amp; gotchas</h2>
+
+    <h3>Tab persistence</h3>
+    <p>The app remembers which tab (Import, Export or Bulk Edit) you had open when you last closed it and restores it on the next visit.</p>
+
+    <h3>"+ All properties" appends, does not overwrite</h3>
+    <p>In Export, <strong>+ All properties</strong> only adds properties that are not shown yet; your existing columns and their order are preserved, so it is safe to click it more than once.</p>
+
+    <h3>Apply to all: hover to reveal</h3>
+    <p>In the Import preview, hover over any filled editable cell to reveal a small "Apply &hellip; to all items" link. Click it to copy that cell's value to every row in the same column. Useful for setting a common unit, category, or lot number across many rows.</p>
+
+    <h3>Special characters in Full name</h3>
+    <p>The Item Name (the text printed on the label) is limited to letters, numbers, and spaces, max 3 lines of 8 characters each. The app strips special characters automatically and highlights affected cells in orange. Review these before importing.</p>
+
+    <h3>Searching by property value</h3>
+    <p>The former "Property value" mode in Export was replaced by Gridify search, which is much faster. To find all items with a given value, use e.g. <code>properties.stringValueByName[Category]=Reagents</code>.</p>
+
+    <h3>Unit values in export</h3>
+    <p>The FLUICS API does not include unit information in item data; units are defined at the property definition level. The app caches unit information with the property list (<strong>↻ Property list</strong>). If a unit column is blank, reload the list and choose the <em>(unit)</em> column again.</p>
+
+    <h3>Credentials stay local</h3>
+    <p>API Key ID and Secret are stored only in your browser's <code>localStorage</code>. They are not included in config exports and are never sent to any server other than <code>api.fluics.com</code>. If you clear your browser data you will need to re-enter them.</p>
+
+    <!-- ── Changelog ── -->
+    <h2 id="changelog">Changes in v1.3</h2>
+    <p>All three tabs now share one layout: <strong>1</strong> settings or selection, <strong>2</strong> input, <strong>3</strong> a table where the result can be checked and edited.</p>
+    <h3>General</h3>
+    <ul>
+      <li>The name of the connected workspace is shown top right (or "Not connected").</li>
+      <li>Every text field has a × to clear it; dropdowns always list all options, typed text only highlights matches.</li>
+      <li>Location picker: tree with full paths, the filter keeps parent locations visible, IDs only on request (<em>Show IDs</em>), archived locations hidden.</li>
+      <li>Gridify search: tip to use the query builder of the Advanced search in the web app, link to the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>, clickable examples.</li>
+      <li>The property lists load much faster (one search instead of reading items one by one) and are cached.</li>
+      <li>No confirmation dialogs for Apply and Clear; the progress window closes on a click outside it once finished.</li>
+    </ul>
+    <h3>Import</h3>
+    <ul>
+      <li>Upload of .xlsx and .csv files (or drop them on the paste box); pasted and uploaded data stays visible.</li>
+      <li>Mapping in box 2: the detected rows and columns are shown, with a dropdown per column (Full name, workspace property, new property, ignore), a default unit for number columns, and a choice of header row and first data row. Choices are remembered.</li>
+      <li>Box 3 "Preview &amp; edit": every cell can still be changed; each column shows where its values came from.</li>
+      <li>Fixed: the Date format setting is applied; decimal commas and thousands separators are understood; quoted CSV fields; row numbers match Excel; created items leave the preview, so a second click cannot import them twice.</li>
+    </ul>
+    <h3>Export</h3>
+    <ul>
+      <li>Input by Label IDs / UUIDs or Gridify search (the slow "Property value" mode was removed). Pasted IDs stay after Load items.</li>
+      <li>Columns are set up in the header of the results table: choose, drag to reorder, remove, add; empty columns can get a header name; every cell can be edited before Copy for Excel or CSV.</li>
+      <li>Storage Location shows the full path, or <em>Workspace root</em>.</li>
+    </ul>
+    <h3>Bulk Edit (new)</h3>
+    <ul>
+      <li>Select items by Label IDs / UUIDs or Gridify search, then set a property value (any data type, including new list values; created where missing) or move the items to another location.</li>
+      <li>Box 3 "Preview &amp; apply" shows current and new values; afterwards the previous value, the value now and the result per item, with <em>Retry</em> for failed items.</li>
+    </ul>
+
+    <!-- ── Notice ── -->
+    <div class="manual-footer">
+      <p>FLUICS CONNECT RestfulAPI Studio v1.3, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
+      <p>Source code and latest version: <a href="https://github.com/FLUICS-com/api-studio" target="_blank" rel="noopener">github.com/FLUICS-com/api-studio</a> · <a href="https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC" target="_blank" rel="noopener">FLUICS CONNECT API documentation (Swagger)</a></p>
+      <p>RestfulAPI Studio is provided as is and used under your own responsibility. Check the preview before importing or applying bulk edits.</p>
+      <p>FLUICS GmbH, Fürstenstr. 15, 80333 München, <a href="mailto:support@fluics.com">support@fluics.com</a>.</p>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
