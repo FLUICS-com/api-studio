@@ -29,7 +29,7 @@ API credentials are stored only in your browser (localStorage) and are never par
 
 ## Third-party code
 
-SheetJS (Apache-2.0) is loaded from cdn.jsdelivr.net when an .xlsx file is imported.
+SheetJS 0.20.3 (Apache-2.0) is loaded from cdn.sheetjs.com, pinned with an integrity hash, when an .xlsx file is imported.
 
 ## Support
 

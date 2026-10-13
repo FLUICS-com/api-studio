@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Studio injection test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  .pass { color: #0a7d32; } .fail { color: #b00020; font-weight: 600; }
+  iframe { width: 100%; height: 420px; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>RestfulAPI Studio injection regression test</h1>
+<p>Serve the repository root (<code>python3 tools/dev_server.py . 8771</code>) and open
+<code>/tests/injection-test.html</code>. Use a port where no credentials are stored: the test
+overwrites this origin's <code>fcm_*</code> settings (credentials are not touched, no API call is made).</p>
+<ol id="out"></ol>
+<p id="summary">Running…</p>
+<iframe id="app" title="App under test"></iframe>
+<script>
+// Payloads: P closes a JS string inside an inline handler (the old
+// onchange="fn('${name}', this.value)" pattern), H breaks out of an HTML attribute.
+const P = n => `x');top.__hit('${n}');//`;
+const H = n => `"><img src=x onerror="top.__hit('${n}')">`;
+const hits = new Set();
+window.__hit = n => hits.add(n);
+const results = [];
+function check(name, ok, detail = '') {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'}: ${name}${detail ? ' (' + detail + ')' : ''}`;
+  document.getElementById('out').appendChild(li);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function loadApp() {
+  return new Promise(res => {
+    const f = document.getElementById('app');
+    f.onload = () => res(f.contentWindow);
+    f.src = '../fc-studio.html?t=' + Date.now();
+  });
+}
+async function fire(w, root, type, skip = []) {
+  // Delegated handlers of the fixed code, plus any inline handler that carries a
+  // payload (how the injection showed up before the fix).
+  for (const el of [...w.document.querySelectorAll(`${root} [data-on${type}], ${root} [on${type}*="__hit"]`)]) {
+    if (skip.includes(el.getAttribute(`data-on${type}`)) || !el.isConnected) continue;
+    if (type === 'click') el.click();
+    else el.dispatchEvent(new w.Event(type, { bubbles: true }));
+    await wait(10);
+  }
+}
+const KEYS = ['fcm_import', 'fcm_export', 'fcm_ws_props', 'fcm_bulk', 'fcm_import_items'];
+
+(async () => {
+  KEYS.forEach(k => localStorage.removeItem(k));
+  // Workspace property names come from other users of the workspace.
+  localStorage.setItem('fcm_ws_props', JSON.stringify({ at: new Date().toISOString(), props: [
+    { name: P('ws-prop'), type: 3, unit: '' },
+    { name: H('ws-prop-html'), type: 6, unit: 'mL' },
+  ] }));
+  // Stored settings as an old version or a crafted config file could leave them.
+  localStorage.setItem('fcm_import', JSON.stringify({ delimiter: 'tab', dateFormat: 'YYYY-MM-DD',
+    columns: [{ name: 'Full name', type: 3, unit: '' }], targets: [{ name: P('own-prop'), type: 6, unit: '' }] }));
+  localStorage.setItem('fcm_export', JSON.stringify({ includeHeader: true, columns: [
+    { id: P('col-id'), name: H('col-name'), isPlaceholder: true },
+    { id: 'c2', name: P('col-prop'), isPlaceholder: false },
+  ] }));
+  const w = await loadApp();
+  await wait(300);
+
+  // Import: paste a sheet whose headers match the payload names, render the mapping, fire it.
+  w.document.getElementById('import-paste').value =
+    `Full name\t${P('ws-prop')}\t${P('own-prop')}\nBuffer A\t1\t2 mL`;
+  w.importParseAndPreview();
+  await wait(400);
+  await fire(w, '#import-map', 'change');
+  await fire(w, '#import-map', 'click');
+
+  // Export: render the stored columns and fire their controls.
+  w.exportRenderTable(); await wait(100);
+  const colsBefore = w.exportCols().length;
+  await fire(w, '#export-table-head', 'change');
+  await fire(w, '#export-table-head', 'click');
+  await wait(200);
+
+  check('no injected code ran', hits.size === 0, hits.size ? 'payloads that ran: ' + [...hits].join(', ') : '');
+  check('export column remove still works through delegation', w.exportCols().length < colsBefore);
+
+  // Config import sanitising.
+  const ex = w.sanitizeExportCfg({ columns: [{ id: P('x'), name: 'A' }, { id: 'ok_1', isSystem: true, systemKey: '__proto__' }] });
+  check('imported column ids are replaced when not plain', ex.columns.every(c => /^[A-Za-z0-9_-]+$/.test(c.id)));
+  check('unknown system fields are dropped', !ex.columns.some(c => c.isSystem));
+  const im = w.sanitizeImportCfg({ delimiter: '<x>', targets: [{ name: 'Lot', type: '6' }, { name: 5 }], mapping: { a: 'v:Lot', b: { x: 1 } } });
+  check('import settings keep only known values', im.delimiter === 'tab' && im.targets.length === 1 && Object.keys(im.mapping).join() === 'a');
+
+  KEYS.forEach(k => localStorage.removeItem(k));
+  const failed = results.filter(r => !r).length;
+  document.getElementById('summary').innerHTML = failed
+    ? `<strong class="fail">${failed} of ${results.length} checks failed</strong>`
+    : `<strong class="pass">All ${results.length} checks passed</strong>`;
+  document.title = failed ? 'FAIL' : 'PASS';
+})().catch(e => { check('test ran without errors', false, e.message); document.title = 'FAIL'; });
+</script>
+</body>
+</html>

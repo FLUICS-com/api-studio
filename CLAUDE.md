@@ -7,3 +7,4 @@
 - Never commit API credentials, real workspace data, exports or customer-specific variants. Example IDs in placeholders and the manual are fake.
 - UI and docs text: no em dashes or en dashes (the lone "—" used as empty-cell marker is a glyph, not text).
 - Local testing and manual screenshots: `python3 tools/dev_server.py . 8766 img`, open `http://localhost:8766/fc-studio.html` (credentials are entered by Claudio). Screenshots: html-to-image in the page at pixelRatio 2, footer hidden, demo workspace only, never Apply/Import. Files in `img/`.
+- Generated markup never gets inline handlers with interpolated values: use `${uiOn('change', 'fn', args…)}` and add `fn` to `UI_HANDLERS`. Imported config blocks go through `sanitizeImportCfg` / `sanitizeExportCfg` / `sanitizeBulkCfg`. Regression test: `python3 tools/dev_server.py . 8771`, open `/tests/injection-test.html`; it must say "All … checks passed".

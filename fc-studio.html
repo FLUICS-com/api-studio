@@ -2,7 +2,7 @@
   FLUICS CONNECT RestfulAPI Studio v1.3
   =====================================
   Copyright (c) 2026 FLUICS GmbH. Released under the MIT License, see LICENSE or
-  https://github.com/FLUICS-com/api-studio/blob/main/LICENSE. SheetJS (Apache-2.0) is loaded from a CDN.
+  https://github.com/FLUICS-com/api-studio/blob/main/LICENSE. SheetJS 0.20.3 (Apache-2.0) is loaded from cdn.sheetjs.com.
 
   Single-file HTML tool with three workflows against the FLUICS CONNECT public API.
   Each tab has the same three boxes: 1 settings / selection, 2 input, 3 table.
@@ -30,7 +30,7 @@
     Drop fc-studio.html + fc-studio-proxy.php on any PHP host (Apache/Nginx).
     Open directly in a browser via file:// or serve from localhost; the app auto-detects
     the environment and picks the right proxy URL. No build step. SheetJS is loaded from
-    cdn.jsdelivr.net only when an .xlsx file is imported.
+    cdn.sheetjs.com only when an .xlsx file is imported.
 
   API Credentials
     Stored in localStorage under key "fcm_creds". Never sent to any server other than
@@ -1243,8 +1243,47 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function escAttr(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+/**
+ * Event handlers for generated markup. Builders write ${uiOn('click', 'fn', a, b)}
+ * instead of an inline onclick with interpolated values, so data never becomes
+ * code: property names come from other workspace users, column ids from imported
+ * config files. The arguments travel as JSON in a data attribute;
+ * {$:'value'|'checked'|'event'} stands for the element's value, checked state or
+ * the event. Only functions listed in UI_HANDLERS can be called.
+ */
+function uiOn(type, fn, ...args) {
+  return `data-on${type}="${escAttr(fn)}" data-${type}-args="${escAttr(JSON.stringify(args))}"`;
+}
+const UI_HANDLERS = {
+  importSetMap: (j, v) => importSetMap(j, v),
+  importSetTargetType: (name, v) => importSetTargetType(name, v),
+  importSetDefaultUnit: (name, v) => importSetDefaultUnit(name, v),
+  importSetHeaderRow: v => importSetRows(+v, importSrc.dataStart),
+  importSetDataStart: v => importSetRows(importSrc.headerRow, +v),
+  importDeleteRow: id => importDeleteRow(id),
+  exportSetCol: (id, v) => exportSetCol(id, v),
+  exportRemoveCol: id => exportRemoveCol(id),
+  exportRenameCol: (id, v) => exportRenameCol(id, v),
+  exportDeleteRow: i => exportDeleteRow(i),
+  bulkSetAction: key => bulkSetAction(key),
+  bulkDeleteRow: i => bulkDeleteRow(i),
+  bulkOpenItem: (ev, i) => bulkOpenItem(ev, i),
+};
+['click', 'change', 'input', 'keydown'].forEach(type => document.addEventListener(type, ev => {
+  const el = ev.target instanceof Element && ev.target.closest(`[data-on${type}]`);
+  if (!el) return;
+  const name = el.getAttribute(`data-on${type}`);
+  const fn = Object.prototype.hasOwnProperty.call(UI_HANDLERS, name) && UI_HANDLERS[name];
+  if (typeof fn !== 'function') return;
+  let args;
+  try { args = JSON.parse(el.getAttribute(`data-${type}-args`) || '[]'); } catch { return; }
+  if (!Array.isArray(args)) return;
+  fn(...args.map(a => a && typeof a === 'object' && '$' in a
+    ? (a.$ === 'value' ? el.value : a.$ === 'checked' ? el.checked : a.$ === 'event' ? ev : undefined) : a));
+}));
 
 // ── Clear (×) button for every text input / textarea ──────────────────────────
 // Wraps the field in .clr-wrap and adds a × that empties it and fires input +
@@ -2218,19 +2257,19 @@ function importRenderMap() {
       ? opt('v:' + p.name, `${p.name} · value`) + opt('u:' + p.name, `${p.name} · unit`)
       : opt('v:' + p.name, p.name)).join('') + '</optgroup>';
     html += opt('__new', '+ New property…');
-    return `<select class="imap-select${cur ? ' is-mapped' : ''}" onchange="importSetMap(${j}, this.value)">${html}</select>`;
+    return `<select class="imap-select${cur ? ' is-mapped' : ''}" ${uiOn('change', 'importSetMap', j, {$:'value'})}>${html}</select>`;
   };
   const sub = j => {
     const m = importSrc.map[j] || '';
     if (!/^[vu]:/.test(m)) return '';
     const p = props.get(m.slice(2).toLowerCase()); if (!p) return '';
     let html = p.own
-      ? `<select class="imap-type" title="Data type of the new property" onchange="importSetTargetType('${escAttr(p.name)}', this.value)">` +
+      ? `<select class="imap-type" title="Data type of the new property" ${uiOn('change', 'importSetTargetType', p.name, {$:'value'})}>` +
         TYPE_OPTIONS.map(([v, l]) => `<option value="${v}"${Number(p.type) === v ? ' selected' : ''}>${escHtml(l.replace(/ \(.*\)$/, ''))}</option>`).join('') + '</select>'
       : `<span>${escHtml(typeLabel(p.type))}</span>`;
     if (m[0] === 'v' && colTypeHasUnit(p.type) && !unitMapped.has(p.name.toLowerCase())) {
       const u = units[p.name.toLowerCase()] ?? p.unit ?? '';
-      html += ` · unit <input class="imap-unit" value="${escAttr(u)}" placeholder="e.g. mL" title="Used when a cell has no unit (a cell like '5 mL' brings its own)" onchange="importSetDefaultUnit('${escAttr(p.name)}', this.value)">`;
+      html += ` · unit <input class="imap-unit" value="${escAttr(u)}" placeholder="e.g. mL" title="Used when a cell has no unit (a cell like '5 mL' brings its own)" ${uiOn('change', 'importSetDefaultUnit', p.name, {$:'value'})}>`;
     }
     return `<div class="imap-sub">${html}</div>`;
   };
@@ -2241,16 +2280,16 @@ function importRenderMap() {
   const lastShown = Math.min(all.length, ds + IMPORT_MAP_PREVIEW_ROWS);
   const skipped = Array.from({ length: ds }, (_, r) => r).filter(r => r !== hr).map(r => r + 1);
   const nOpts = Math.min(all.length, 20);
-  const rowSel = (cur, first, noneLabel, onchange) =>
-    `<select class="imap-rowsel" onchange="${onchange}">` +
+  const rowSel = (cur, first, noneLabel, handler) =>
+    `<select class="imap-rowsel" ${uiOn('change', handler, {$:'value'})}>` +
     (noneLabel ? `<option value="-1"${cur < 0 ? ' selected' : ''}>${noneLabel}</option>` : '') +
     Array.from({ length: nOpts - first }, (_, k) => k + first)
       .map(r => `<option value="${r}"${r === cur ? ' selected' : ''}>row ${r + 1}</option>`).join('') + `</select>`;
   box.innerHTML =
     `<div class="imap-bar">` +
       `<span><strong>${escHtml(importSrc.name)}</strong> · ${data.length} data row${data.length !== 1 ? 's' : ''} × ${width} column${width !== 1 ? 's' : ''}</span>` +
-      `<label>Column names in ${rowSel(hr, 0, 'no row (none)', `importSetRows(+this.value, importSrc.dataStart)`)}</label>` +
-      `<label>Data starts at ${rowSel(ds, Math.max(0, hr + 1), '', `importSetRows(importSrc.headerRow, +this.value)`)}</label>` +
+      `<label>Column names in ${rowSel(hr, 0, 'no row (none)', 'importSetHeaderRow')}</label>` +
+      `<label>Data starts at ${rowSel(ds, Math.max(0, hr + 1), '', 'importSetDataStart')}</label>` +
       (skipped.length ? `<span class="imap-skipped">skipped: row${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')}</span>` : '') +
       `<button type="button" class="imap-refresh" onclick="importRefreshProps(false)" ${importPropsLoading ? 'disabled' : ''}>${importPropsLoading ? 'Loading properties…' : '↻ Property list' + (ws ? '' : ' (load)')}</button>` +
     `</div>` +
@@ -2268,11 +2307,16 @@ function importRenderMap() {
 }
 
 // SheetJS is only needed for .xlsx/.xls, so it is loaded on first use.
+// 0.20.3 fixes CVE-2023-30533 and CVE-2024-22363. Releases after 0.18.5 are
+// published only on cdn.sheetjs.com (not npm/jsDelivr); the integrity hash pins
+// the exact file.
 function loadSheetJS() {
   if (window.XLSX) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const sc = document.createElement('script');
-    sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    sc.integrity = 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT';
+    sc.crossOrigin = 'anonymous';
     sc.onload = resolve;
     sc.onerror = () => reject(new Error('The Excel reader could not be loaded (no internet connection?). Save the sheet as CSV, or copy and paste the cells instead.'));
     document.head.appendChild(sc);
@@ -2405,7 +2449,7 @@ function importRenderTable() {
     const { l1, l2, l3 } = item.label || { l1:'', l2:'', l3:'' };
 
     const numCell  = `<td class="td-num">${idx+1}</td>`;
-    const fullCell = `<td><div class="td-cell is-name" contenteditable="true" data-id="${item.id}" data-ci="0" data-placeholder="—"` +
+    const fullCell = `<td><div class="td-cell is-name" contenteditable="true" data-id="${escAttr(item.id)}" data-ci="0" data-placeholder="—"` +
       ` onblur="importSaveCell(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"` +
       `>${escHtml(fullVal)}</div></td>`;
     const labelCell = `<td><div class="td-label-wrap${hasSpecial ? ' label-modified-wrap' : ''}">` +
@@ -2417,11 +2461,11 @@ function importRenderTable() {
     const extraCells = expCols.slice(1).map((col, ci) => {
       const val = item.cells[ci + 1] !== undefined ? item.cells[ci + 1] : '';
       return `<td style="position:relative" onmouseenter="importOnCellHover(this)" onmouseleave="importOnCellOut(this)">` +
-        `<div class="td-cell" contenteditable="true" data-id="${item.id}" data-ci="${ci + 1}" data-placeholder="—"` +
+        `<div class="td-cell" contenteditable="true" data-id="${escAttr(item.id)}" data-ci="${ci + 1}" data-placeholder="—"` +
         ` onblur="importSaveCell(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"` +
         `>${escHtml(val)}</div></td>`;
     }).join('');
-    return `<tr data-id="${item.id}">${numCell}${fullCell}${labelCell}${extraCells}<td><button class="btn-del" onclick="importDeleteRow(${item.id})" type="button">✕</button></td></tr>`;
+    return `<tr data-id="${escAttr(item.id)}">${numCell}${fullCell}${labelCell}${extraCells}<td><button class="btn-del" ${uiOn('click', 'importDeleteRow', item.id)} type="button">✕</button></td></tr>`;
   }).join('');
 
 }
@@ -2436,7 +2480,7 @@ function importSrcTag(i) {
 
 function importMakeLabelSeg(id, field, val) {
   const over = val.length >= LABEL_SEG_MAX ? ' over' : '';
-  return `<div class="label-seg${over}" contenteditable="true" data-id="${id}" data-lf="${field}" data-placeholder="—"` +
+  return `<div class="label-seg${over}" contenteditable="true" data-id="${escAttr(id)}" data-lf="${escAttr(field)}" data-placeholder="—"` +
     ` oninput="importEnforceLabelSeg(this)" onblur="importSaveLabelSeg(this)"` +
     ` onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}if(event.key==='Tab'){event.preventDefault();importFocusNextLabelSeg(this);}"` +
     `>${escHtml(val)}</div>`;
@@ -3077,7 +3121,7 @@ function exportColSelect(c) {
     if (colTypeHasUnit(p.type)) names.push(p.name + ' (value)', p.name + ' (unit)'); else names.push(p.name);
   });
   if (!c.isPlaceholder && !c.isSystem && !names.some(n => n.toLowerCase() === c.name.toLowerCase())) names.unshift(c.name);
-  return `<select class="exp-col-select" onchange="exportSetCol('${c.id}', this.value)">` +
+  return `<select class="exp-col-select" ${uiOn('change', 'exportSetCol', c.id, {$:'value'})}>` +
     opt('empty', '(empty column)') +
     `<optgroup label="System fields">${EXPORT_SYS.map(([k, l]) => opt('sys:' + k, l)).join('')}</optgroup>` +
     `<optgroup label="Properties${ws.length ? '' : ' (list not loaded yet)'}">${names.map(n => opt('prop:' + n, n)).join('')}</optgroup>` +
@@ -3095,24 +3139,24 @@ function exportRenderTable() {
   document.getElementById('export-table-head').innerHTML =
     `<th class="th-preview-id" title="Not included in the export">Input ID</th>` +
     cols.map(c =>
-      `<th class="exp-col${c.isPlaceholder ? ' is-empty' : ''}" data-col="${c.id}">` +
+      `<th class="exp-col${c.isPlaceholder ? ' is-empty' : ''}" data-col="${escAttr(c.id)}">` +
         `<div class="exp-col-head">` +
           `<span class="exp-drag" draggable="true" title="Drag to move this column">⠿</span>` +
           exportColSelect(c) +
-          `<button class="exp-col-del" type="button" title="Remove column" onclick="exportRemoveCol('${c.id}')">×</button>` +
+          `<button class="exp-col-del" type="button" title="Remove column" ${uiOn('click', 'exportRemoveCol', c.id)}>×</button>` +
         `</div>` +
-        (c.isPlaceholder ? `<input class="exp-col-name" placeholder="Header (optional)" value="${escAttr(c.name || '')}" onchange="exportRenameCol('${c.id}', this.value)">` : '') +
+        (c.isPlaceholder ? `<input class="exp-col-name" placeholder="Header (optional)" value="${escAttr(c.name || '')}" ${uiOn('change', 'exportRenameCol', c.id, {$:'value'})}>` : '') +
       `</th>`).join('') +
     '<th></th>';
 
   document.getElementById('export-table-body').innerHTML = !exportRows.length
     ? `<tr><td colspan="${cols.length + 2}" class="empty-state" style="padding:28px 16px">Select items above and click Load items. The columns can already be set up here.</td></tr>`
     : exportRows.map((r, i) => {
-      const del = `<td><button class="btn-del" onclick="exportDeleteRow(${i})" type="button">✕</button></td>`;
+      const del = `<td><button class="btn-del" ${uiOn('click', 'exportDeleteRow', i)} type="button">✕</button></td>`;
       if (!r.ok) return `<tr class="row-err"><td class="td-preview-id">${escHtml(r.input)}</td><td class="td-err" colspan="${cols.length}">${escHtml(r.error)}</td>${del}</tr>`;
       return `<tr><td class="td-preview-id">${escHtml(r.input)}</td>` + cols.map(c => {
         const edited = r.edits && Object.prototype.hasOwnProperty.call(r.edits, c.id);
-        return `<td><div class="td-cell${edited ? ' is-edited' : ''}" contenteditable="true" data-row="${i}" data-col="${c.id}" data-placeholder="—"` +
+        return `<td><div class="td-cell${edited ? ' is-edited' : ''}" contenteditable="true" data-row="${i}" data-col="${escAttr(c.id)}" data-placeholder="—"` +
           ` onblur="exportEditCell(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}">` +
           escHtml(exportCellValue(r, c, dateFmt)) + `</div></td>`;
       }).join('') + del + `</tr>`;
@@ -3532,7 +3576,7 @@ function bulkClear() {
 // Actions without an API endpoint (available: false) are not shown at all.
 function bulkRenderActions() {
   document.getElementById('bulk-action-chips').innerHTML = BULK_ACTIONS.filter(a => a.available).map(a =>
-    `<button type="button" class="action-chip${a.key === bulkAction ? ' active' : ''}" onclick="bulkSetAction('${a.key}')">` +
+    `<button type="button" class="action-chip${a.key === bulkAction ? ' active' : ''}" ${uiOn('click', 'bulkSetAction', a.key)}>` +
     escHtml(a.label) + `</button>`
   ).join('');
 }
@@ -3787,7 +3831,7 @@ function bulkRenderTable() {
 
   const span = 3 + (h2 ? 2 : 1) + (hasStatus ? 1 : 0);
   document.getElementById('bulk-table-body').innerHTML = bulkItems.map((r, i) => {
-    const del = `<td><button class="btn-del" onclick="bulkDeleteRow(${i})" type="button" title="Remove from selection">✕</button></td>`;
+    const del = `<td><button class="btn-del" ${uiOn('click', 'bulkDeleteRow', i)} type="button" title="Remove from selection">✕</button></td>`;
     if (!r.ok) {
       return `<tr class="row-err"><td class="td-num">${i + 1}</td><td class="td-id">${escHtml(r.input)}</td>` +
         `<td class="td-err" colspan="${span - 1}">${escHtml(r.error)}</td>${del}</tr>`;
@@ -3813,7 +3857,7 @@ function bulkRenderTable() {
       : '';
     const idCell = r.lid
       ? `<td class="td-id"><a class="id-link" href="https://fcs.re/?${encodeURIComponent(r.lid)}" target="_blank" rel="noopener" title="Open in FLUICS CONNECT">${escHtml(r.lid)}</a></td>`
-      : `<td class="td-id"><a class="id-link" href="#" onclick="bulkOpenItem(event, ${i})" title="Open in FLUICS CONNECT (${escAttr(r.id)})">${escHtml(String(r.id).slice(0, 8))}…</a></td>`;
+      : `<td class="td-id"><a class="id-link" href="#" ${uiOn('click', 'bulkOpenItem', {$:'event'}, i)} title="Open in FLUICS CONNECT (${escAttr(r.id)})">${escHtml(String(r.id).slice(0, 8))}…</a></td>`;
     return `<tr><td class="td-num">${i + 1}</td>${idCell}<td class="td-val">${escHtml(r.name)}</td>` +
       `<td class="td-val" style="color:#aaa">${escHtml(r.objectType)}</td>${cells}${status}${del}</tr>`;
   }).join('');
@@ -4067,6 +4111,56 @@ function configExport() {
   a.click();
 }
 
+// Imported config files are untrusted (they can come from anyone): keep only the
+// known keys with the expected types, so nothing unexpected reaches the markup.
+const cfgStr = v => typeof v === 'string' ? v : '';
+const cfgStrMap = o => Object.fromEntries(Object.entries(o && typeof o === 'object' && !Array.isArray(o) ? o : {})
+  .filter(([, v]) => typeof v === 'string'));
+const CFG_COL_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+
+function sanitizeImportCfg(c) {
+  const prop = p => p && typeof p === 'object' && typeof p.name === 'string' && p.name.trim()
+    ? { name: p.name, type: Number.isInteger(Number(p.type)) ? Number(p.type) : 3, unit: cfgStr(p.unit) } : null;
+  return {
+    delimiter:    ['tab', 'comma', 'semicolon'].includes(c.delimiter) ? c.delimiter : 'tab',
+    dateFormat:   cfgStr(c.dateFormat) || 'YYYY-MM-DD',
+    locationId:   cfgStr(c.locationId) || null,
+    locationName: cfgStr(c.locationName) || null,
+    columns:      (Array.isArray(c.columns) ? c.columns : []).map(prop).filter(Boolean),
+    targets:      (Array.isArray(c.targets) ? c.targets : []).map(prop).filter(Boolean),
+    mapping:      cfgStrMap(c.mapping),
+    mappingPos:   (Array.isArray(c.mappingPos) ? c.mappingPos : []).map(cfgStr),
+    units:        cfgStrMap(c.units),
+  };
+}
+
+function sanitizeExportCfg(c) {
+  const sys = new Set(EXPORT_SYS.map(([k]) => k));
+  const seen = new Set();
+  const columns = (Array.isArray(c.columns) ? c.columns : []).filter(x => x && typeof x === 'object').map((x, i) => {
+    let id = typeof x.id === 'string' && CFG_COL_ID_RE.test(x.id) ? x.id : 'cimp' + i;
+    if (seen.has(id)) id = 'cimp' + i + 'd';
+    seen.add(id);
+    const col = { id, name: cfgStr(x.name) };
+    if (x.isPlaceholder === true) col.isPlaceholder = true;
+    else if (x.isSystem === true && sys.has(x.systemKey)) { col.isSystem = true; col.systemKey = x.systemKey; }
+    else if (!col.name) col.isPlaceholder = true;
+    if (typeof x._unit === 'string') col._unit = x._unit;
+    return col;
+  });
+  return {
+    columns,
+    inputMode:     c.inputMode === 'search' ? 'search' : 'lid',
+    filter:        cfgStr(c.filter),
+    dateFormat:    cfgStr(c.dateFormat) || 'YYYY-MM-DD',
+    includeHeader: c.includeHeader !== false,
+  };
+}
+
+function sanitizeBulkCfg(c) {
+  return { inputMode: c.inputMode === 'search' ? 'search' : 'ids', filter: cfgStr(c.filter), action: cfgStr(c.action) || 'set', prop: cfgStr(c.prop) };
+}
+
 function configImport(input) {
   const file = input.files[0];
   if (!file) return;
@@ -4083,16 +4177,16 @@ function configImport(input) {
 
     let imported = 0;
     if (cfg.import && typeof cfg.import === 'object') {
-      saveImportCfg(cfg.import);
+      saveImportCfg(sanitizeImportCfg(cfg.import));
       imported++;
     }
     if (cfg.export && typeof cfg.export === 'object') {
       // normalize so a v1.0 file (no includeHeader) lands with the old default
-      saveExportCfg(normalizeExportCfg(cfg.export));
+      saveExportCfg(sanitizeExportCfg(cfg.export));
       imported++;
     }
     if (cfg.bulk && typeof cfg.bulk === 'object') {
-      localStorage.setItem('fcm_bulk', JSON.stringify(cfg.bulk));
+      localStorage.setItem('fcm_bulk', JSON.stringify(sanitizeBulkCfg(cfg.bulk)));
       bulkInitFromCfg();
       imported++;
     }
