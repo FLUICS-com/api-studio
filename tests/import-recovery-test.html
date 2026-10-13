@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Studio import recovery test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  .pass { color: #0a7d32; } .fail { color: #b00020; font-weight: 600; }
+  iframe { width: 100%; height: 360px; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>RestfulAPI Studio import recovery test</h1>
+<p>Runs the Import tab against a mocked API (no network, fake credentials): a property write fails
+once, the row must stay with its object id, and the next Import must write only that property.
+Serve the repository root on a spare port (<code>python3 tools/dev_server.py . 8771</code>) and
+open <code>/tests/import-recovery-test.html</code>; the test overwrites this origin's <code>fcm_*</code> data.</p>
+<ol id="out"></ol>
+<p id="summary">Running…</p>
+<iframe id="app" title="App under test"></iframe>
+<script>
+const results = [];
+function check(name, ok, detail = '') {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'}: ${name}${detail ? ' (' + detail + ')' : ''}`;
+  document.getElementById('out').appendChild(li);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function loadApp() {
+  return new Promise(res => {
+    const f = document.getElementById('app');
+    f.onload = () => res(f.contentWindow);
+    f.src = '../fc-studio.html?t=' + Date.now();
+  });
+}
+const KEYS = ['fcm_creds', 'fcm_import', 'fcm_export', 'fcm_ws_props', 'fcm_bulk', 'fcm_import_items'];
+
+(async () => {
+  KEYS.forEach(k => localStorage.removeItem(k));
+  localStorage.setItem('fcm_import', JSON.stringify({ delimiter: 'tab', dateFormat: 'YYYY-MM-DD', columns: [
+    { name: 'Full name', type: 3, unit: '' }, { name: 'Lot', type: 3, unit: '' },
+    { name: 'Volume', type: 2, unit: 'mL' }, { name: 'Expiry', type: 4, unit: '' },
+  ] }));
+  const w = await loadApp();
+  await wait(300);
+
+  // Mocked API: records every call; the first write of "Lot" fails.
+  const calls = [];
+  let lotFails = 1, objects = 0;
+  const json = (status, body) => new w.Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  w.fetch = async (url, opts = {}) => {
+    const path = String(url).replace(/^.*?(\/v2\/)/, '/v2/').split('?')[0];
+    const body = opts.body ? JSON.parse(opts.body) : null;
+    calls.push({ method: opts.method || 'GET', path, body });
+    if (path === '/v2/auth/login') return json(200, { accessToken: 'token' });
+    if (path === '/v2/objects' && opts.method === 'POST') return json(200, { id: 'obj-' + (++objects), properties: [] });
+    if (path === '/v2/properties' && opts.method === 'POST') {
+      if (body.name === 'Lot' && lotFails-- > 0) return json(500, { message: 'simulated failure' });
+      return json(200, {});
+    }
+    return json(200, {});
+  };
+  const alerts = [];
+  w.alert = m => alerts.push(String(m));
+  // Fake credentials only now, after the mock is in place: the app's start-up
+  // workspace check must not send them to the real API.
+  localStorage.setItem('fcm_creds', JSON.stringify({ keyId: 'test-key', secret: 'test-secret' }));
+
+  const setItems = rows => w.eval(`importItems = ${JSON.stringify(rows)}.map((cells, i) => ({ id: 100 + i, cells, label: deriveLabel(cells[0]), sig: importCurrentSig() })); importSaveItems(); importRenderTable();`);
+  const items = () => w.eval('importItems');
+
+  // 1. A malformed number stops the whole import before anything is created.
+  setItems([['Buffer A', 'L1', '5', 'mL', '2026-10-13'], ['Buffer B', 'L2', '12abc', 'mL', '']]);  // cells: name, Lot, Volume value, Volume unit, Expiry
+  await w.importToFluics();
+  check('malformed number blocks the import', calls.length === 0 && alerts.some(a => a.includes('Nothing was imported') && a.includes('12abc')));
+
+  // 2. Property write fails: the row stays with its object id and the failed property only.
+  alerts.length = 0;
+  setItems([['Buffer A', 'L1', '5,5', 'mL', '2026-10-13 12:00+02:00']]);
+  await w.importToFluics();
+  const after1 = items();
+  check('created row with a failed property stays', after1.length === 1 && after1[0].objectId === 'obj-1');
+  check('only the failed property is marked', JSON.stringify(after1[0].failedProps) === '["Lot"]');
+  const exp = calls.find(c => c.path === '/v2/properties' && c.body && c.body.name === 'Expiry');
+  check('date offset is kept (12:00+02:00 is 10:00Z)', exp && exp.body.dateTimeValue === '2026-10-13T10:00:00.000Z', exp && exp.body.dateTimeValue);
+  const vol = calls.find(c => c.path === '/v2/properties' && c.body && c.body.name === 'Volume');
+  check('decimal with comma and unit written', vol && vol.body.decimalValue === 5.5 && vol.body.unit === 'mL');
+
+  // 3. Retry: no second object, only "Lot" written.
+  const before = calls.length;
+  await w.importToFluics();
+  const retry = calls.slice(before);
+  check('retry creates no second object', !retry.some(c => c.path === '/v2/objects' && c.method === 'POST'));
+  check('retry writes only the failed property', retry.filter(c => c.path === '/v2/properties').map(c => c.body.name).join() === 'Lot');
+  check('row leaves the preview when complete', items().length === 0);
+
+  // 4. Rows made for other columns are removed with a note when the columns change.
+  setItems([['Buffer C', 'L3', '1', 'mL', '']]);
+  const cfg = JSON.parse(localStorage.getItem('fcm_import'));
+  cfg.columns = cfg.columns.slice(0, 2);
+  localStorage.setItem('fcm_import', JSON.stringify(cfg));
+  const note = w.importDropIncompatible();
+  check('rows for other columns are removed', items().length === 0 && /other columns/.test(note), note);
+
+  KEYS.forEach(k => localStorage.removeItem(k));
+  const failed = results.filter(r => !r).length;
+  document.getElementById('summary').innerHTML = failed
+    ? `<strong class="fail">${failed} of ${results.length} checks failed</strong>`
+    : `<strong class="pass">All ${results.length} checks passed</strong>`;
+  document.title = failed ? 'FAIL' : 'PASS';
+})().catch(e => { check('test ran without errors', false, e.message); document.title = 'FAIL'; });
+</script>
+</body>
+</html>

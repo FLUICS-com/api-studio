@@ -231,7 +231,7 @@
 <body>
 
 <header class="site-header">
-  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.3</span></h1>
+  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.4</span></h1>
   <a href="fc-studio.html" class="back-link">
     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -267,7 +267,7 @@
     <a href="#config">Configuration files</a>
     <a href="#datatypes">Data types reference</a>
     <a href="#tips">Tips &amp; gotchas</a>
-    <a href="#changelog">Changes in v1.3</a>
+    <a href="#changelog">Changes in v1.4</a>
   </nav>
 
   <!-- Main content -->
@@ -404,7 +404,9 @@
       <div class="step-num">4</div>
       <div class="step-body">
         <h3 id="import-run">Import</h3>
-        <p>Click <strong>Import to FLUICS CONNECT</strong>. A progress dialog shows each item as it is created. Errors are listed with the reason. The dialog stays open when finished; click <strong>Close</strong> when done.</p>
+        <p>Click <strong>Import to FLUICS CONNECT</strong>. First every number and date that will be written is checked; if one is malformed or out of range (for example <code>12abc</code>, <code>1.2.3</code>, an integer above 2,147,483,647 or the 30 February), nothing is created and a list names the row and column to fix. Then a progress dialog shows each item as it is created. Errors are listed with the reason. The dialog stays open when finished; click <strong>Close</strong> when done.</p>
+        <p>Complete items leave the preview, so a second click cannot create them twice. If an item was created but one of its properties could not be written, the row stays in the preview marked <strong>↻</strong> (hover it to see the object id and the failed properties). Fix the value if needed and click Import again: only the failed properties are written, the item is not created a second time.</p>
+        <p>The preview rows belong to the columns they were made for. If the columns change (another mapping, an imported configuration), rows made for other columns are removed with a note, so no value ends up in the wrong property; rows marked ↻ are listed first, so you can complete them with Bulk Edit.</p>
       </div>
     </div>
 
@@ -556,8 +558,8 @@ fcs.re/?aBcDeF
         <tr><td><strong>Single-value list</strong></td><td>One value from a pre-defined list.</td></tr>
         <tr><td><strong>Multi-value list</strong></td><td>Multiple values, separated by semicolons: <code>value1;value2;value3</code></td></tr>
         <tr><td><strong>Integer (value | unit)</strong></td><td>Whole number. Requires <strong>two columns</strong>: one for the number (<code>Quantity (value)</code>), one for the unit (<code>Quantity (unit)</code>).</td></tr>
-        <tr><td><strong>Decimal (value | unit)</strong></td><td>Decimal number. Same two-column requirement as Integer.</td></tr>
-        <tr><td><strong>Date / Time</strong></td><td>Formatted according to your date format setting.</td></tr>
+        <tr><td><strong>Decimal (value | unit)</strong></td><td>Decimal number. Same two-column requirement as Integer. Decimal commas and thousands separators are understood (<code>1.234,5</code>); anything else in the cell is rejected before the import starts. Integers must be whole numbers between -2,147,483,648 and 2,147,483,647.</td></tr>
+        <tr><td><strong>Date / Time</strong></td><td>Read with your date format setting; ISO dates (<code>2026-10-13</code>) always work. A time (<code>12:00</code> or <code>12:00:30</code>) and a time zone at the end (<code>Z</code>, <code>+02:00</code>, <code>-0500</code>) are respected: <code>2026-10-13 12:00+02:00</code> is stored as 10:00 UTC. Without a time zone the time is taken as UTC.</td></tr>
         <tr><td><strong>Barcode</strong></td><td>Text treated as a barcode value.</td></tr>
       </tbody>
     </table>
@@ -590,11 +592,25 @@ fcs.re/?aBcDeF
     <h3>Unit values in export</h3>
     <p>The FLUICS API does not include unit information in item data; units are defined at the property definition level. The app caches unit information with the property list (<strong>↻ Property list</strong>). If a unit column is blank, reload the list and choose the <em>(unit)</em> column again.</p>
 
+    <h3>Changing the API key</h3>
+    <p>When you save another Key ID or proxy URL, everything read from the previous workspace is cleared: the property list, location paths and chosen locations, loaded Export and Bulk Edit items. Import rows already created in the previous workspace are listed and removed.</p>
+
     <h3>Credentials stay local</h3>
     <p>API Key ID and Secret are stored only in your browser's <code>localStorage</code>. They are not included in config exports and are never sent to any server other than <code>api.fluics.com</code>. If you clear your browser data you will need to re-enter them.</p>
 
     <!-- ── Changelog ── -->
-    <h2 id="changelog">Changes in v1.3</h2>
+    <h2 id="changelog">Changes in v1.4</h2>
+    <p>Safety release after an external review.</p>
+    <ul>
+      <li>Import checks every number and date before creating anything; malformed or out-of-range numbers are rejected, time zones in dates are respected.</li>
+      <li>Items created with a failed property stay in the preview (↻); the next Import writes only the failed properties.</li>
+      <li>Preview rows made for other columns are removed with a warning when the columns change.</li>
+      <li>A new Key ID or proxy clears the data of the previous workspace.</li>
+      <li>Bulk Edit counts a number as saved only when the unit matches too (1 mL is not 1 L).</li>
+      <li>Property names and configuration files can no longer run code in the app; imported configurations keep only known settings. The Excel reader is updated to SheetJS 0.20.3.</li>
+    </ul>
+
+    <h2>Changes in v1.3</h2>
     <p>All three tabs now share one layout: <strong>1</strong> settings or selection, <strong>2</strong> input, <strong>3</strong> a table where the result can be checked and edited.</p>
     <h3>General</h3>
     <ul>
@@ -626,7 +642,7 @@ fcs.re/?aBcDeF
 
     <!-- ── Notice ── -->
     <div class="manual-footer">
-      <p>FLUICS CONNECT RestfulAPI Studio v1.3, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
+      <p>FLUICS CONNECT RestfulAPI Studio v1.4, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
       <p>Source code and latest version: <a href="https://github.com/FLUICS-com/api-studio" target="_blank" rel="noopener">github.com/FLUICS-com/api-studio</a> · <a href="https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC" target="_blank" rel="noopener">FLUICS CONNECT API documentation (Swagger)</a></p>
       <p>RestfulAPI Studio is provided as is and used under your own responsibility. Check the preview before importing or applying bulk edits.</p>
       <p>FLUICS GmbH, Fürstenstr. 15, 80333 München, <a href="mailto:support@fluics.com">support@fluics.com</a>.</p>
