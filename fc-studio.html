@@ -1,5 +1,5 @@
 <!--
-  FLUICS CONNECT RestfulAPI Studio v1.4
+  FLUICS CONNECT RestfulAPI Studio v1.5
   =====================================
   Copyright (c) 2026 FLUICS GmbH. Released under the MIT License, see LICENSE or
   https://github.com/FLUICS-com/api-studio/blob/main/LICENSE. SheetJS 0.20.3 (Apache-2.0) is loaded from cdn.sheetjs.com.
@@ -15,15 +15,20 @@
     3 Preview & edit: editable grid (Item Name derived from Full name), then import.
 
   Module C: Export
-    1 Export settings (collapsible): date format, header row on/off.
-    2 Select items: Label IDs / UUIDs, or a Gridify search.
+    1 Select items: By ID or property ("Select by" Label ID / UUID, In location
+      (picked or typed by name, sub-locations optional), or a property
+      with a list of values or a condition, queries built by the app) or
+      Advanced search (a Gridify query as typed). Shared with Bulk Edit: switching
+      between the two copies the selection over (syncSelectItems).
+    2 Export settings (collapsible): date format, header row on/off.
     3 Columns & results: columns set up in the table header (dropdown, drag to
       reorder, empty columns with a name), editable cells, Copy for Excel / CSV.
 
   Module B: Bulk Edit
-    1 Select items (Label IDs / UUIDs or Gridify search), 2 Choose action (set a
-    property value of any type, created where missing; or move to a location),
-    3 Preview & apply with before/after values and a results view.
+    1 Select items (By ID or property, or Advanced search), 2 Choose action (set a
+    property value of any type, created where missing; clear a property value;
+    move to a location; change label lines 1-3), 3 Preview & apply with
+    before/after values and a results view.
     Remove / rename property and archive wait for public API endpoints.
 
   Deployment
@@ -42,10 +47,11 @@
                         targets (properties created here), mapping / mappingPos (remembered choices), units}
     fcm_ws_props       {at, props: [{name, type, unit}]}  workspace property list for the mapping
     fcm_import_items   {items, nextId}
-    fcm_export         {columns: [{id, name, isPlaceholder?, isSystem?, systemKey?, _unit?}], inputMode: 'lid'|'search',
+    fcm_export         {columns: [{id, name, isPlaceholder?, isSystem?, systemKey?, _unit?, auto?}], inputMode: 'lid'|'search', propSel?,
                         filter?, dateFormat, includeHeader}
     fcm_loc_ids        '1' when the location picker shows IDs
-    fcm_bulk           {inputMode: 'ids'|'search', filter?, action?, prop?}
+    fcm_bulk           {inputMode: 'ids'|'search', filter?, action?, prop?, propSel?: {prop, cond, active, loc: {text, id, sub}}}
+                       propSel.prop is 'Label ID / UUID' or a property name
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -89,16 +95,14 @@ body {
 h1 { font-size: 1.2rem; font-weight: 600; }
 @media (min-width:600px) { h1 { font-size: 1.4rem; } }
 
-.subtitle { font-size: 0.82rem; color: #888; margin-bottom: 20px; }
-@media (min-width:600px) { .subtitle { margin-bottom: 28px; } }
 
 /* ── Card shell ──────────────────────────────────────────────────────────────── */
 .card {
   background: white;
-  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-in);
   width: 100%;
   max-width: 90vw;
-  box-shadow: 0 2px 14px rgba(0,0,0,0.07);
   margin-bottom: 14px;
 }
 
@@ -114,21 +118,30 @@ h1 { font-size: 1.2rem; font-weight: 600; }
 }
 .page-header-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
-/* ── Tab bar ─────────────────────────────────────────────────────────────────── */
-.tab-bar {
-  display: flex;
-  gap: 4px;
-  background: #e8eaf0;
-  border-radius: 10px;
-  padding: 3px;
+/* ── Module cards (same pattern as PRINT Studio's print modes) ─────────────────── */
+.mode-bar {
+  width: 100%; max-width: 90vw;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin: 10px 0 14px;
 }
-.tab-btn {
-  font-size: 0.78rem; font-weight: 600; padding: 5px 14px;
-  border: none; border-radius: 7px; cursor: pointer; transition: all 0.15s;
-  background: transparent; color: var(--muted); white-space: nowrap;
+.mode-card {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  text-align: left; padding: 10px 14px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-in);
+  background: white; color: #777; font: inherit;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.tab-btn:hover { background: rgba(255,255,255,0.6); color: var(--text); }
-.tab-btn.tab-active { background: white; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.mode-card svg { flex-shrink: 0; }
+.mode-card:hover { border-color: #c7d4f7; color: var(--text); }
+.mode-card.active { border-color: var(--blue); background: var(--blue-light); color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+.mode-card .mode-title { display: block; font-size: 0.9rem; font-weight: 600; line-height: 1.2; }
+.mode-card .mode-hint  { display: block; font-size: 0.72rem; color: var(--muted); line-height: 1.25; margin-top: 2px; }
+.mode-card.active .mode-hint { color: var(--blue); opacity: 0.8; }
+@media (max-width: 639px) {
+  .mode-bar { gap: 6px; }
+  .mode-card { padding: 8px 10px; gap: 8px; }
+  .mode-card .mode-hint { display: none; }
+}
 
 /* ── Gear button ─────────────────────────────────────────────────────────────── */
 .btn-gear {
@@ -157,8 +170,12 @@ h1 { font-size: 1.2rem; font-weight: 600; }
 
 /* ── Section header row (inside cards) ──────────────────────────────────────── */
 .section-row {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-bottom: 10px;
+}
+@media (max-width: 639px) {
+  .section-row .seg-toggle { width: 100%; }
+  .section-row .seg-toggle button { flex: 1; padding: 4px 6px; }
 }
 .section-row .field-label { flex: 1; margin: 0; }
 
@@ -398,12 +415,12 @@ textarea.main-input:focus { border-color: var(--blue); }
 .settings-field input:focus::placeholder { color: transparent; }
 .settings-field input[type="text"],
 .settings-field input[type="password"],
-.settings-field select {
+.settings-field select, .settings-field textarea.bulk-value-text {
   font-size: 0.82rem; padding: 0 12px; border: 2px solid var(--border);
   border-radius: var(--radius-in); outline: none; color: #333;
   transition: border-color 0.15s; height: 38px; width: 100%;
 }
-.settings-field input:focus, .settings-field select:focus { border-color: var(--blue); }
+.settings-field input:focus, .settings-field select:focus, .settings-field textarea.bulk-value-text:focus { border-color: var(--blue); }
 
 /* Location input row */
 .loc-input-row { display: flex; gap: 6px; align-items: stretch; }
@@ -570,6 +587,18 @@ input.main-input-line:focus { border-color: var(--blue); }
 .input-stack > .ids-pane > .clr-wrap > textarea { flex: 1; }
 .bulk-examples code[onclick] { overflow-wrap: anywhere; }
 
+/* ── Select by property ──────────────────────────────────────────────────────── */
+.ps-pane { display: flex; flex-direction: column; gap: 10px; }
+.ps-fields { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+@media (max-width: 639px) { .ps-fields { grid-template-columns: 1fr; } }
+.ps-pane textarea.main-input { min-height: 190px; }   /* room for the full ID hint */
+.ps-foot { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; font-size: 0.76rem; color: #999; }
+.ps-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.ps-check input { width: 14px; height: 14px; margin: 0; accent-color: var(--blue); }
+.ps-query { flex: 1; min-width: 200px; }
+.ps-query summary { cursor: pointer; color: var(--blue); }
+.ps-query code { display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.72rem; color: #777; }
+
 .action-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .action-chip {
   font-size: 0.8rem; font-weight: 600; padding: 8px 14px; min-height: 36px;
@@ -586,6 +615,12 @@ input.main-input-line:focus { border-color: var(--blue); }
   border-radius: var(--radius-in); outline: none; color: #333; height: 38px; width: 100%;
 }
 .bulk-fields .settings-field input[type="date"]:focus { border-color: var(--blue); }
+.label-clear-btn {
+  align-self: flex-start; border: none; background: none; padding: 0; cursor: pointer;
+  font-size: 0.74rem; font-weight: 500; color: #888;
+}
+.label-clear-btn:hover { color: var(--blue); }
+.label-clear-btn.on { color: var(--blue); font-weight: 600; }
 .bulk-note { font-size: 0.76rem; color: #999; line-height: 1.5; margin-top: 12px; }
 .bulk-note.warn { color: #b06a00; }
 
@@ -595,6 +630,9 @@ input.main-input-line:focus { border-color: var(--blue); }
 .td-new { color: #1a7a45; font-weight: 600; }
 .td-new.unchanged { color: #aaa; font-weight: 400; }
 .td-new.invalid { color: var(--red); font-weight: 400; font-style: italic; }
+#bulk-table td.td-old, #bulk-table td.td-new, #bulk-table td.td-val { white-space: pre-line; }
+.settings-field textarea.bulk-value-text { height: 38px; min-height: 38px; max-height: 220px; padding: 9px 12px; line-height: 1.25; font-family: inherit; resize: none; overflow-y: auto; display: block; }
+.clr-wrap.clr-ta > .combo-caret { top: 9px; transform: none; }
 .td-status { font-size: 0.75rem; white-space: nowrap; }
 .td-status.ok  { color: var(--green); }
 .td-status.err { color: var(--red); }
@@ -645,6 +683,8 @@ input.main-input-line:focus { border-color: var(--blue); }
 .combo-opt .combo-meta { margin-left: auto; font-size: 0.7rem; color: #aaa; white-space: nowrap; }
 .combo-opt .combo-check { width: 14px; color: var(--blue); font-weight: 700; flex-shrink: 0; }
 .combo-opt.combo-new { color: var(--blue); font-weight: 600; border-bottom: 1px solid #f0f0f0; border-radius: 7px 7px 0 0; }
+.combo-opt.combo-sep { position: relative; margin-top: 9px; }   /* divider above the option (sep: true) */
+.combo-opt.combo-sep::before { content: ''; position: absolute; left: 6px; right: 6px; top: -5px; border-top: 1px solid #e6e8ef; }
 .combo-info { padding: 8px 10px; font-size: 0.78rem; color: #aaa; font-style: italic; }
 
 /* ── Export settings card ───────────────────────────────────────────────────── */
@@ -767,11 +807,6 @@ select {
 <div class="page-header">
   <div class="page-header-left">
     <h1>FLUICS CONNECT RestfulAPI Studio</h1>
-    <div class="tab-bar">
-      <button class="tab-btn tab-active" onclick="switchTab('import')" id="tab-btn-import" type="button">Import</button>
-      <button class="tab-btn" onclick="switchTab('export')" id="tab-btn-export" type="button">Export</button>
-      <button class="tab-btn" onclick="switchTab('bulk')" id="tab-btn-bulk" type="button">Bulk Edit</button>
-    </div>
   </div>
   <div class="header-actions">
     <span class="ws-badge" id="ws-badge" style="display:none"></span>
@@ -807,10 +842,21 @@ select {
     </button>
   </div>
 </div>
-<p class="subtitle" id="page-subtitle" style="width:100%;max-width:90vw">
-  Paste spreadsheet data, preview and import items to FLUICS CONNECT
-</p>
-
+<!-- Module selector: three cards, the active one highlighted -->
+<nav class="mode-bar" aria-label="Module">
+  <button type="button" class="mode-card active" onclick="switchTab('import')" id="tab-btn-import">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+    <span style="min-width:0"><span class="mode-title">Import</span><span class="mode-hint">Spreadsheet rows to new items</span></span>
+  </button>
+  <button type="button" class="mode-card" onclick="switchTab('bulk')" id="tab-btn-bulk">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    <span style="min-width:0"><span class="mode-title">Bulk Edit</span><span class="mode-hint">Change many items at once</span></span>
+  </button>
+  <button type="button" class="mode-card" onclick="switchTab('export')" id="tab-btn-export">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+    <span style="min-width:0"><span class="mode-title">Export</span><span class="mode-hint">Item data to Excel or CSV</span></span>
+  </button>
+</nav>
 <!-- ══════════════════════════════════════════════════════════════════════════
      MODULE A: IMPORT
      ══════════════════════════════════════════════════════════════════════════ -->
@@ -914,11 +960,43 @@ select {
      ══════════════════════════════════════════════════════════════════════════ -->
 <div id="section-export" style="width:100%;max-width:90vw;display:none;flex-direction:column;gap:0">
 
+  <!-- ID input card -->
+  <div class="card input-card">
+    <div class="section-row">
+      <label class="field-label" for="export-ids">1 · Select items</label>
+      <div class="seg-toggle">
+        <button type="button" id="export-seg-lid" onclick="exportSetInputMode('lid')">By ID or property</button>
+        <button type="button" id="export-seg-search" onclick="exportSetInputMode('search')">Advanced search</button>
+      </div>
+    </div>
+    <div class="input-stack">
+    <div id="export-ids-wrap" class="ids-pane ps-pane" data-ps="export">
+      <div data-ps-top></div>
+      <textarea id="export-ids" class="main-input"
+        placeholder="Paste Label IDs or UUIDs here, one per line…&#10;&#10;Examples:&#10;aB3dE9&#10;fcs.re/?Xy7Kq2&#10;3f2a9c1e-5b7d-4e8a-9c0b-1a2b3c4d5e6f"
+        autocomplete="off" spellcheck="false"></textarea>
+      <div data-ps-bottom></div>
+    </div>
+    <div id="export-search-wrap" class="is-hidden">
+      <input type="text" id="export-filter" class="main-input-line" autocomplete="off" spellcheck="false"
+        onkeydown="if(event.key==='Enter')exportFetchAll()">
+      <div class="bulk-examples" data-gridify-for="export-filter"></div>
+    </div>
+    </div>
+    <div class="hint-row">
+      <button class="btn-confirm" id="export-fetch-btn" onclick="exportFetchAll()" type="button">Load items</button>
+      <span id="export-status" class="hint-text"></span>
+    </div>
+    <div class="progress-wrap" id="export-progress-wrap">
+      <div class="progress-bar" id="export-progress-bar" style="width:0%"></div>
+    </div>
+  </div>
+
   <!-- Settings card -->
   <div class="card input-card" id="export-settings-card">
     <button type="button" class="collapse-head" id="export-settings-toggle" onclick="exportToggleSettings()" aria-expanded="false" aria-controls="export-settings-body">
       <span class="collapse-chev">▸</span>
-      <span class="field-label">1 · Export settings</span>
+      <span class="field-label">2 · Export settings</span>
       <span class="collapse-summary" id="export-settings-summary"></span>
       <span class="hint-text" id="export-settings-status"></span>
     </button>
@@ -944,43 +1022,13 @@ select {
     </div>
   </div>
 
-  <!-- ID input card -->
-  <div class="card input-card">
-    <div class="section-row">
-      <label class="field-label" for="export-ids">2 · Select items</label>
-      <div class="seg-toggle">
-        <button type="button" id="export-seg-lid" onclick="exportSetInputMode('lid')">Label IDs / UUIDs</button>
-        <button type="button" id="export-seg-search" onclick="exportSetInputMode('search')">Gridify search</button>
-      </div>
-    </div>
-    <div class="input-stack">
-    <div id="export-ids-wrap" class="ids-pane">
-      <textarea id="export-ids" class="main-input"
-        placeholder="Paste Label IDs or UUIDs here, one per line…&#10;&#10;Examples:&#10;aB3dE9&#10;fcs.re/?Xy7Kq2&#10;3f2a9c1e-5b7d-4e8a-9c0b-1a2b3c4d5e6f"
-        autocomplete="off" spellcheck="false"></textarea>
-    </div>
-    <div id="export-search-wrap" class="is-hidden">
-      <input type="text" id="export-filter" class="main-input-line" autocomplete="off" spellcheck="false"
-        onkeydown="if(event.key==='Enter')exportFetchAll()">
-      <div class="bulk-examples" data-gridify-for="export-filter"></div>
-    </div>
-    </div>
-    <div class="hint-row">
-      <button class="btn-confirm" id="export-fetch-btn" onclick="exportFetchAll()" type="button">Load items</button>
-      <span id="export-status" class="hint-text"></span>
-    </div>
-    <div class="progress-wrap" id="export-progress-wrap">
-      <div class="progress-bar" id="export-progress-bar" style="width:0%"></div>
-    </div>
-  </div>
-
   <!-- Columns & results card -->
   <div class="card table-card">
     <div class="table-header" style="flex-wrap:wrap">
       <div class="left">3 · Columns &amp; results <span class="count-badge" id="export-count-badge">0</span></div>
       <div class="table-actions">
         <button class="btn btn-neutral" onclick="exportAddCol()" type="button">+ Add column</button>
-        <button class="btn btn-neutral" onclick="exportAddAllProps()" type="button" title="Add a column for every workspace property not shown yet">+ All properties</button>
+        <button class="btn btn-neutral" id="export-allprops-btn" onclick="exportAllPropsClick()" type="button" title="Add a column for every workspace property not shown yet">+ All properties</button>
         <button class="btn btn-neutral" id="export-props-btn" onclick="exportRefreshProps()" type="button" title="Reload the property list from FLUICS">↻ Property list</button>
         <button class="btn btn-green" id="export-copy-btn" onclick="exportCopyExcel()" type="button">Copy for Excel</button>
         <button class="btn btn-neutral" onclick="exportDownloadCSV()" type="button">Export CSV</button>
@@ -1009,15 +1057,17 @@ select {
     <div class="section-row">
       <label class="field-label" id="bulk-input-label" for="bulk-ids">1 · Select items</label>
       <div class="seg-toggle">
-        <button type="button" id="bulk-mode-ids" onclick="bulkSetInputMode('ids')">Label IDs / UUIDs</button>
-        <button type="button" id="bulk-mode-search" onclick="bulkSetInputMode('search')">Gridify search</button>
+        <button type="button" id="bulk-mode-ids" onclick="bulkSetInputMode('ids')">By ID or property</button>
+        <button type="button" id="bulk-mode-search" onclick="bulkSetInputMode('search')">Advanced search</button>
       </div>
     </div>
     <div class="input-stack">
-    <div id="bulk-ids-wrap" class="ids-pane">
+    <div id="bulk-ids-wrap" class="ids-pane ps-pane" data-ps="bulk">
+      <div data-ps-top></div>
       <textarea id="bulk-ids" class="main-input"
         placeholder="Paste Label IDs or UUIDs here, one per line…&#10;&#10;Examples:&#10;aB3dE9&#10;fcs.re/?Xy7Kq2&#10;3f2a9c1e-5b7d-4e8a-9c0b-1a2b3c4d5e6f"
         autocomplete="off" spellcheck="false"></textarea>
+      <div data-ps-bottom></div>
     </div>
     <div id="bulk-search-wrap" class="is-hidden">
       <input type="text" id="bulk-filter" class="main-input-line" autocomplete="off" spellcheck="false"
@@ -1045,7 +1095,6 @@ select {
         <div class="loc-input-row">
           <input type="text" id="bulk-prop" autocomplete="off" spellcheck="false"
             placeholder="e.g. Status" oninput="bulkOnPropChange()">
-          <button class="btn-loc-browse" id="bulk-prop-load" onclick="bulkLoadWorkspaceProps()" type="button">From FLUICS</button>
         </div>
       </div>
       <div class="settings-field" id="bulk-field-type">
@@ -1055,6 +1104,8 @@ select {
       <div class="settings-field" id="bulk-field-value">
         <label for="bulk-value" id="bulk-value-label">New value</label>
         <input type="text" id="bulk-value" autocomplete="off" spellcheck="false" oninput="bulkRenderTable()">
+        <textarea id="bulk-value-text" rows="1" class="bulk-value-text" autocomplete="off" spellcheck="false"
+          oninput="bulkGrowText(this); bulkRenderTable()"></textarea>
       </div>
       <div class="settings-field" id="bulk-field-unit">
         <label for="bulk-unit">Unit</label>
@@ -1082,6 +1133,24 @@ select {
           </button>
         </div>
         <div id="bulk-location-name" style="font-size:0.78rem;font-weight:600;color:var(--blue);min-height:1.1em;padding-left:2px;margin-top:2px;"></div>
+      </div>
+    </div>
+
+    <div class="bulk-fields" id="bulk-fields-label" style="display:none">
+      <div class="settings-field">
+        <label for="bulk-label-1">Label line 1</label>
+        <input type="text" id="bulk-label-1" maxlength="8" autocomplete="off" spellcheck="false" placeholder="keep" oninput="bulkOnLabelInput(this)">
+        <button type="button" class="label-clear-btn" id="bulk-label-1-clr" onclick="bulkToggleLabelClear(1)">Clear line 1</button>
+      </div>
+      <div class="settings-field">
+        <label for="bulk-label-2">Label line 2</label>
+        <input type="text" id="bulk-label-2" maxlength="8" autocomplete="off" spellcheck="false" placeholder="keep" oninput="bulkOnLabelInput(this)">
+        <button type="button" class="label-clear-btn" id="bulk-label-2-clr" onclick="bulkToggleLabelClear(2)">Clear line 2</button>
+      </div>
+      <div class="settings-field">
+        <label for="bulk-label-3">Label line 3</label>
+        <input type="text" id="bulk-label-3" maxlength="8" autocomplete="off" spellcheck="false" placeholder="keep" oninput="bulkOnLabelInput(this)">
+        <button type="button" class="label-clear-btn" id="bulk-label-3-clr" onclick="bulkToggleLabelClear(3)">Clear line 3</button>
       </div>
     </div>
 
@@ -1210,7 +1279,7 @@ select {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const APP_VERSION = '1.4';
+const APP_VERSION = '1.5';
 // Footer links; an empty value hides the link.
 const APP_LINKS = {
   repo:     'https://github.com/FLUICS-com/api-studio',   // source code and latest release (GitHub)
@@ -1272,6 +1341,7 @@ const UI_HANDLERS = {
   bulkSetAction: key => bulkSetAction(key),
   bulkDeleteRow: i => bulkDeleteRow(i),
   bulkOpenItem: (ev, i) => bulkOpenItem(ev, i),
+  openLocPicker: target => openLocPicker(target === 'export-ps' || target === 'bulk-ps' ? target : 'bulk'),
 };
 ['click', 'change', 'input', 'keydown'].forEach(type => document.addEventListener(type, ev => {
   const el = ev.target instanceof Element && ev.target.closest(`[data-on${type}]`);
@@ -1373,13 +1443,13 @@ function makeCombo(input, getOptions, cfg = {}) {
     rows = [];
     const newLabel = cfg.newLabel && q && !opts.some(o => o.value.toLowerCase() === q.toLowerCase()) ? cfg.newLabel(q) : null;
     if (newLabel) rows.push({ kind: 'new', value: q, html: '+ ' + escHtml(newLabel) });
-    opts.forEach(o => rows.push({ kind: 'opt', value: o.value, meta: o.meta,
+    opts.forEach(o => rows.push({ kind: 'opt', value: o.value, meta: o.meta, sep: o.sep,
       html: (isMulti() ? `<span class="combo-check">${chosen.has(o.value.toLowerCase()) ? '✓' : ''}</span>` : '') + `<span>${hl(o.value, q)}</span>` }));
     active = q ? rows.findIndex(r => r.kind === 'opt' && r.value.toLowerCase().includes(q.toLowerCase())) : -1;
     const info = cfg.loading && cfg.loading() ? '<div class="combo-info">Loading values from FLUICS…</div>'
       : !opts.length ? `<div class="combo-info">${escHtml(cfg.emptyText || 'No existing values')}</div>` : '';
     menu.innerHTML = rows.map((r, i) =>
-      `<div class="combo-opt${r.kind === 'new' ? ' combo-new' : ''}${i === active ? ' active' : ''}" data-i="${i}">` +
+      `<div class="combo-opt${r.kind === 'new' ? ' combo-new' : ''}${r.sep ? ' combo-sep' : ''}${i === active ? ' active' : ''}" data-i="${i}">` +
       r.html + (r.meta ? `<span class="combo-meta">${escHtml(r.meta)}</span>` : '') + '</div>').join('') + info;
     const a = menu.querySelector('.combo-opt.active');
     if (a) a.scrollIntoView({ block: 'nearest' });
@@ -1408,8 +1478,11 @@ function makeCombo(input, getOptions, cfg = {}) {
   input.addEventListener('click', open);
   input.addEventListener('blur', close);
   input.addEventListener('input', () => { if (!silent) open(); });
+  // A textarea keeps its own arrow keys and Enter (new line); pick with the mouse.
+  const nativeKeys = input.tagName === 'TEXTAREA';
   input.addEventListener('keydown', e => {
     const isOpen = menu.classList.contains('open');
+    if (nativeKeys) { if (e.key === 'Escape' || e.key === 'Tab') close(); return; }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!isOpen) return open();
@@ -1460,6 +1533,298 @@ function gridifyUseExample(el) {
   input.value = el.textContent;
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.focus();
+}
+
+// ── Select by ID or property (Bulk Edit + Export) ─────────────────────────────
+// "Select by" is Label ID / UUID (default: the pasted IDs are read one by one) or
+// a property with a condition, for which the app writes the Gridify queries. Both
+// share the ID textarea: IDs one per line, or the property values for "is one of"
+// (e.g. a scan list of external barcodes). "is one of" takes
+// a pasted or scanned list (one value per line) and runs PS_CHUNK values per
+// query. Every match is checked again against the loaded property value, so a
+// loose server query (contains, a wider date window) never adds wrong items, and
+// has a value / is empty are decided here, not by Gridify.
+
+const PS_CHUNK = 20;
+const PS_CONDS = [
+  ['oneOf',    'is one of (list)'],
+  ['equals',   'equals'],
+  ['contains', 'contains'],
+  ['hasValue', 'has a value'],
+  ['empty',    'is empty'],
+  ['exists',   'is on the item'],
+];
+const PS_VALUE_FIELD = { 1: 'intValueByName', 2: 'decimalValueByName', 4: 'dateTimeValueByName' };
+const PS_ID = 'Label ID / UUID';   // first "Select by" option: the classic ID list
+const PS_LOC = 'In location';      // second option: items in a location, picked or typed by name
+const PS_IDS_HINT = 'Paste Label IDs or UUIDs here, one per line…\n\nExamples:\naB3dE9\nfcs.re/?Xy7Kq2\n3f2a9c1e-5b7d-4e8a-9c0b-1a2b3c4d5e6f';
+
+function psEl(prefix, part) {
+  return document.getElementById(part === 'values' ? prefix + '-ids' : prefix + '-ps-' + part);
+}
+/** True while "Select by" is Label ID / UUID (or empty). */
+function psIsId(prefix) {
+  const v = psEl(prefix, 'prop').value.trim().toLowerCase();
+  return !v || v === PS_ID.toLowerCase();
+}
+function psIsLoc(prefix) { return psEl(prefix, 'prop').value.trim().toLowerCase() === PS_LOC.toLowerCase(); }
+
+// The fields go around the existing ID textarea: "Select by" + condition above,
+// single value, active-only switch and query preview below.
+function psRender(prefix) {
+  const id = part => prefix + '-ps-' + part;
+  const pane = document.querySelector(`[data-ps="${prefix}"]`);
+  pane.querySelector('[data-ps-top]').innerHTML =
+    `<div class="ps-fields">` +
+      `<div class="settings-field"><label for="${id('prop')}">Select by</label>` +
+        `<div class="loc-input-row"><input type="text" id="${id('prop')}" autocomplete="off" spellcheck="false" placeholder="${escAttr(PS_ID)}"></div></div>` +
+      `<div class="settings-field" id="${id('cond-field')}"><label for="${id('cond')}">Condition</label>` +
+        `<select id="${id('cond')}">${PS_CONDS.map(([v, l]) => `<option value="${v}">${escHtml(l)}</option>`).join('')}</select></div>` +
+      `<div class="settings-field" id="${id('loc-field')}"><label for="${id('loc')}">Location</label>` +
+        `<div class="loc-input-row"><input type="text" id="${id('loc')}" autocomplete="off" spellcheck="false" placeholder="Name, path or ID">` +
+        `<button class="btn-loc-browse" type="button" ${uiOn('click', 'openLocPicker', prefix + '-ps')}>` +
+        `<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke-width="2" stroke-linecap="round"/></svg> Browse</button></div></div>` +
+    `</div>`;
+  pane.querySelector('[data-ps-bottom]').innerHTML =
+    `<input type="text" id="${id('value')}" class="main-input-line ps-value" autocomplete="off" spellcheck="false" placeholder="Value">` +
+    `<div class="ps-foot" id="${id('foot')}">` +
+      `<label class="ps-check"><input type="checkbox" id="${id('active')}" checked> Active items only</label>` +
+      `<label class="ps-check" id="${id('sub-wrap')}"><input type="checkbox" id="${id('sub')}" checked> Include sub-locations</label>` +
+      `<details class="ps-query"><summary>Show query</summary><code id="${id('query')}"></code></details>` +
+    `</div>`;
+}
+
+function psPropOptions() {
+  return [{ value: PS_ID, meta: 'default' }, { value: PS_LOC, meta: 'location' }].concat((((loadWsProps() || {}).props) || [])
+    .slice().sort((a, b) => a.name.localeCompare(b.name))
+    .map((p, i) => ({ value: p.name, meta: TYPE_LABELS[p.type] || '', sep: i === 0 })));
+}
+function psPropType(name) {
+  const p = (((loadWsProps() || {}).props) || []).find(x => x.name.toLowerCase() === name.toLowerCase());
+  return p ? p.type : null;
+}
+
+function psState(prefix) {
+  return {
+    prop:   psEl(prefix, 'prop').value.trim(),
+    cond:   psEl(prefix, 'cond').value,
+    active: psEl(prefix, 'active').checked,
+    loc:    { text: psEl(prefix, 'loc').value.trim(), id: psEl(prefix, 'loc').dataset.id || '', sub: psEl(prefix, 'sub').checked },
+  };
+}
+
+// Normalized comparison key of one value for a data type ('' = not a value).
+function psKey(t, v, dateFmt) {
+  v = String(v ?? '').trim();
+  if (!v) return '';
+  if (t === 1 || t === 2) { const n = Number(v.replace(',', '.')); if (!isFinite(n)) throw new Error(`"${v}" is not a number`); return String(n); }
+  if (t === 4) return importParseDate(v, dateFmt).slice(0, 10);
+  return v.toLowerCase();
+}
+function psPropKeys(p, t) {
+  if (!p) return [];
+  const raw = propValue(p, 'YYYY-MM-DD');
+  if (!raw) return [];
+  const vals = t === 7 ? raw.split(';') : [raw];
+  return vals.map(v => { try { return psKey(t === 4 ? 3 : t, v); } catch { return ''; } }).filter(Boolean);
+}
+function psFindProp(obj, name) {
+  const l = name.toLowerCase();
+  return (obj.properties || obj.Properties || []).find(p => (p.name || p.Name || '').toLowerCase() === l);
+}
+
+// Gridify value: special characters escaped; a leading operator character would
+// change the operator (=* contains, =^ starts with), so it is escaped too.
+function psGv(v) { return gridifyEscape(v).replace(/^([*^$!])/, '\\$1'); }
+function psDay(key, add) { const d = new Date(key + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + add); return d.toISOString().slice(0, 19) + 'Z'; }
+
+/**
+ * Plan for the current form: {error} or {name, t, cond, wanted, queries, match(obj)}.
+ * wanted: Map(key → value as typed) for is one of / equals, used for the report.
+ */
+function psBuild(prefix, dateFmt) {
+  const st = psState(prefix);
+  if (psIsId(prefix)) return { error: 'Choose a property.' };
+  if (psIsLoc(prefix)) return psBuildLoc(st);
+  const known = psPropType(st.prop);
+  const t = known || 3;
+  const name = st.prop;
+  const field = `properties.${PS_VALUE_FIELD[t] || 'stringValueByName'}[${name}]`;
+  const pre = st.active ? 'isArchived=false,' : '';
+  const plan = { name, t, cond: st.cond, known: !!known, wanted: null, queries: [] };
+
+  if (st.cond === 'oneOf' || st.cond === 'equals' || st.cond === 'contains') {
+    const raw = st.cond === 'oneOf'
+      ? psEl(prefix, 'values').value.split('\n')
+      : [psEl(prefix, 'value').value];
+    const wanted = new Map();
+    try {
+      for (const v of raw) { const k = psKey(t, v, dateFmt); if (k && !wanted.has(k)) wanted.set(k, v.trim()); }
+    } catch (e) { return { error: e.message }; }
+    if (!wanted.size) return { error: st.cond === 'oneOf' ? 'Paste or scan at least one value.' : 'Enter a value.' };
+    plan.wanted = wanted;
+    const contains = st.cond === 'contains' && t !== 1 && t !== 2 && t !== 4;
+    // Multi-value lists are stored as "a;b": a single value can only be found with contains.
+    const loose = contains || t === 7;
+    const term = k => {
+      if (t === 1 || t === 2) return `${field}=${k}`;
+      if (t === 4) return `(${field}>=${psDay(k, -1)},${field}<${psDay(k, 2)})`;
+      return `${field}=${loose ? '*' : ''}${psGv(wanted.get(k))}/i`;
+    };
+    const keys = [...wanted.keys()];
+    for (let i = 0; i < keys.length; i += PS_CHUNK) {
+      const terms = keys.slice(i, i + PS_CHUNK).map(term);
+      plan.queries.push(pre + (terms.length > 1 ? '(' + terms.join('|') + ')' : terms[0]));
+    }
+    plan.match = obj => {
+      const have = psPropKeys(psFindProp(obj, name), t);
+      if (contains) { const k = keys[0]; return have.some(h => h.includes(k)); }
+      return have.some(h => wanted.has(h));
+    };
+    return plan;
+  }
+
+  // has a value / is empty / is on the item: every item with the property, decided here.
+  plan.queries.push(pre + (known ? `properties.nameByType[${t}]=${psGv(name)}` : `properties.name=${psGv(name)}`));
+  plan.match = obj => {
+    const p = psFindProp(obj, name);
+    if (!p) return false;
+    if (st.cond === 'exists') return true;
+    const empty = !psPropKeys(p, t).length;
+    return st.cond === 'empty' ? empty : !empty;
+  };
+  return plan;
+}
+
+// "In location": Gridify has no location name field, only locationId (the item's
+// own location) and parentLocation (=* matches the location and everything below
+// it). A picked location brings its ID; a typed name or path is looked up in the
+// location tree when the items are loaded (psResolveLoc).
+function psBuildLoc(st) {
+  const { text, sub } = st.loc;
+  if (!text) return { error: 'Choose a location.' };
+  const pre  = st.active ? 'isArchived=false,' : '';
+  const term = id => pre + (sub ? `parentLocation=*${id}` : `locationId=${id}`);
+  const plan = { cond: 'loc', loc: { text, id: st.loc.id || (isUUID(text) ? text : ''), sub }, wanted: null, queries: [] };
+  plan.setLoc = id => { plan.loc.id = id; plan.queries = [term(id)]; };
+  if (plan.loc.id) plan.setLoc(plan.loc.id);
+  else plan.preview = term(`<ID of "${text}">`);
+  plan.match = obj => sub || (obj.locationId || obj.LocationId) === plan.loc.id;
+  return plan;
+}
+
+let psLocRows = null;   // location tree for name lookups, cleared on a workspace change
+async function psResolveLoc(token, text) {
+  if (!psLocRows) {
+    psLocRows = locBuildRows(await fcGetAllLocations(token));
+    psLocRows.forEach(r => locPaths.set(r.id, r.path));
+  }
+  const l = text.toLowerCase().split('/').map(x => x.trim()).filter(Boolean).join(' / ');
+  let hits = psLocRows.filter(r => r.path.toLowerCase() === l);
+  if (!hits.length) hits = psLocRows.filter(r => r.name.toLowerCase() === l);
+  if (hits.length === 1) return hits[0].id;
+  if (!hits.length) throw new Error(`No location named "${text}". Check the spelling or use Browse.`);
+  throw new Error(`${hits.length} locations are named "${text}" (${hits.slice(0, 3).map(r => r.path).join('; ')}${hits.length > 3 ? '; …' : ''}). Type the full path or use Browse.`);
+}
+
+/**
+ * Runs the plan: {objects, capped, report, missing}. report says how many listed
+ * values were found, which ones not, and which matched more than one item.
+ */
+async function psSearch(token, plan, onProgress, max) {
+  if (plan.loc && !plan.loc.id) plan.setLoc(await psResolveLoc(token, plan.loc.text));
+  const byId = new Map();
+  let capped = false;
+  for (let i = 0; i < plan.queries.length && byId.size < max; i++) {
+    const { objects, count } = await fcGridifySearch(token, plan.queries[i],
+      (n, c) => onProgress && onProgress(i, plan.queries.length, n, c), max);
+    if (count > objects.length) capped = true;
+    for (const o of objects) if (!byId.has(o.id) && plan.match(o)) byId.set(o.id, o);
+  }
+  const objects = [...byId.values()].slice(0, max);
+  if (byId.size > max) capped = true;
+  let report = '', missing = [];
+  if (plan.wanted && plan.cond !== 'contains') {
+    const hits = new Map([...plan.wanted.keys()].map(k => [k, 0]));
+    for (const o of objects) for (const k of new Set(psPropKeys(psFindProp(o, plan.name), plan.t))) if (hits.has(k)) hits.set(k, hits.get(k) + 1);
+    missing = [...hits].filter(([, n]) => !n).map(([k]) => plan.wanted.get(k));
+    const several = [...hits].filter(([, n]) => n > 1).map(([k, n]) => `${plan.wanted.get(k)} (${n})`);
+    const list = a => a.slice(0, 8).join(', ') + (a.length > 8 ? ` and ${a.length - 8} more` : '');
+    report = `${hits.size - missing.length} of ${hits.size} value${hits.size !== 1 ? 's' : ''} found` +
+      (missing.length ? `; not found: ${list(missing)}` : '') +
+      (several.length ? `; on several items: ${list(several)}` : '');
+  }
+  return { objects, capped, report, missing };
+}
+
+// Wires one "Select by" pane: combo, field visibility, query preview, saved
+// choices. save(patch) stores {propSel} in the module's config; dateFmt() gives
+// the date format for typed dates; onEnter loads the items.
+function psInit(prefix, saved, save, dateFmt, onEnter) {
+  psRender(prefix);
+  const prop = psEl(prefix, 'prop'), cond = psEl(prefix, 'cond'), active = psEl(prefix, 'active');
+  const values = psEl(prefix, 'values');
+  prop.value = (saved && saved.prop) || PS_ID;
+  if (saved && PS_CONDS.some(([v]) => v === saved.cond)) cond.value = saved.cond;
+  active.checked = !(saved && saved.active === false);
+  const loc = psEl(prefix, 'loc'), sub = psEl(prefix, 'sub');
+  if (saved && saved.loc) { loc.value = saved.loc.text || ''; if (saved.loc.id) loc.dataset.id = saved.loc.id; sub.checked = saved.loc.sub !== false; }
+  const update = () => {
+    const byId = psIsId(prefix), byLoc = psIsLoc(prefix), c = cond.value;
+    psEl(prefix, 'cond-field').style.display = byId || byLoc ? 'none' : '';
+    psEl(prefix, 'loc-field').style.display  = byLoc ? '' : 'none';
+    psEl(prefix, 'sub-wrap').style.display   = byLoc ? '' : 'none';
+    psEl(prefix, 'foot').style.display       = byId ? 'none' : '';
+    values.style.display = byId || (!byLoc && c === 'oneOf') ? '' : 'none';
+    values.closest('.clr-wrap') && (values.closest('.clr-wrap').style.display = values.style.display);
+    values.placeholder = byId ? PS_IDS_HINT : `Paste or scan the ${prop.value.trim()} values here, one per line…`;
+    psEl(prefix, 'value').style.display = !byId && !byLoc && (c === 'equals' || c === 'contains') ? '' : 'none';
+    psEl(prefix, 'value').type = psPropType(prop.value.trim()) === 4 ? 'date' : 'text';
+    if (!byId) {
+      const plan = psBuild(prefix, dateFmt());
+      psEl(prefix, 'query').textContent = plan.error ? plan.error
+        : !plan.queries.length ? plan.preview || ''
+        : plan.queries.length > 3 ? plan.queries.slice(0, 2).join('\n') + `\n… ${plan.queries.length} queries in all`
+        : plan.queries.join('\n');
+    }
+    save({ propSel: psState(prefix) });
+  };
+  makeCombo(prop, psPropOptions, {
+    newLabel: q => `Use "${q}"`,
+    emptyText: 'No properties found',
+    loading: () => psPropsLoading,
+  });
+  // The property list loads by itself the first time the dropdown is used.
+  prop.addEventListener('focus', () => psAutoLoadProps(() => { prop._combo && prop._combo.refresh(); update(); }));
+  loc.addEventListener('input', () => delete loc.dataset.id);   // typed: looked up by name on load
+  loc.addEventListener('keydown', e => { if (e.key === 'Enter') onEnter(); });
+  [prop, cond, active, values, psEl(prefix, 'value'), loc, sub].forEach(el => {
+    el.addEventListener('input', update);
+    el.addEventListener('change', update);
+  });
+  psEl(prefix, 'value').addEventListener('keydown', e => { if (e.key === 'Enter') onEnter(); });
+  update();
+  return update;
+}
+
+// Loads the workspace property list when it is missing (or always with force),
+// so the plan knows the data type of the chosen property.
+async function psEnsureProps(token, force) {
+  if (!force && loadWsProps()) return;
+  const props = await fcGetWorkspacePropsFast(token);
+  localStorage.setItem('fcm_ws_props', JSON.stringify({ at: new Date().toISOString(), props }));
+}
+
+// Background load for the property dropdowns (no button): runs once when no list
+// is cached and credentials are set; failures stay quiet, the dropdown just
+// keeps offering what it has, and Load items tries again.
+let psPropsLoading = false;
+async function psAutoLoadProps(onDone) {
+  if (psPropsLoading || loadWsProps() || !loadCreds().keyId) return;
+  psPropsLoading = true;
+  try { await psEnsureProps(await fcLogin()); } catch {}
+  psPropsLoading = false;
+  if (onDone) onDone();
 }
 
 // ── localStorage ───────────────────────────────────────────────────────────────
@@ -1714,7 +2079,7 @@ async function fcGridifySearch(token, filter, onProgress, max) {
     }), { headers });
     if (!r.ok) {
       const d = await fcErrDetail(r);
-      throw new Error((r.status === 400 ? 'Invalid Gridify filter' : 'Search failed') + ' (' + r.status + ')' + (d ? ': ' + d : ''));
+      throw new Error((r.status === 400 ? 'Invalid search query' : 'Search failed') + ' (' + r.status + ')' + (d ? ': ' + d : ''));
     }
     const data = await r.json();
     const rows = data.data || data.Data || [];
@@ -1799,19 +2164,38 @@ async function showWorkspaceName() {
 
 // ── Tab navigation ─────────────────────────────────────────────────────────────
 
-const SUBTITLES = {
-  import: 'Paste spreadsheet data, preview and import items to FLUICS CONNECT',
-  export: 'Select items by Label ID, UUID or Gridify search, then copy or download their data',
-  bulk:   'Select items by Label ID, UUID or Gridify search, then edit them in one go',
-};
-
+let selectTab = null;   // Export or Bulk Edit, whichever was open last
 function switchTab(tab) {
+  if (tab === 'export' || tab === 'bulk') {
+    if (selectTab && selectTab !== tab) syncSelectItems(selectTab, tab);
+    selectTab = tab;
+  }
   localStorage.setItem('fcm_active_tab', tab);
   for (const t of ['import', 'export', 'bulk']) {
     document.getElementById('section-' + t).style.display = tab === t ? 'flex' : 'none';
-    document.getElementById('tab-btn-' + t).classList.toggle('tab-active', tab === t);
+    document.getElementById('tab-btn-' + t).classList.toggle('active', tab === t);
   }
-  document.getElementById('page-subtitle').textContent = SUBTITLES[tab];
+}
+
+// Export and Bulk Edit share "Select items": switching between them copies the
+// mode, the IDs or values, "Select by" with its condition and the search query
+// from the tab left behind into the one being opened (loaded items stay put).
+function syncSelectItems(from, to) {
+  const el = (pre, part) => document.getElementById(pre + '-' + part);
+  const search = (from === 'export' ? loadExportCfg() : loadBulkCfg()).inputMode === 'search';
+  const copy = part => {
+    const a = el(from, part), b = el(to, part);
+    if (a.type === 'checkbox') b.checked = a.checked; else b.value = a.value;
+  };
+  copy('ps-prop'); copy('ps-cond'); copy('ps-active');
+  el(to, 'ps-prop').dispatchEvent(new Event('change'));   // sets the value field type
+  copy('ps-value'); copy('ps-loc'); copy('ps-sub'); copy('ids'); copy('filter');
+  const locId = el(from, 'ps-loc').dataset.id;
+  if (locId) el(to, 'ps-loc').dataset.id = locId; else delete el(to, 'ps-loc').dataset.id;
+  el(to, 'ids').dispatchEvent(new Event('input'));          // refreshes the pane and saves propSel
+  const filter = el(to, 'filter').value.trim();
+  if (to === 'export') { saveExportCfg({ ...loadExportCfg(), filter }); exportSetInputMode(search ? 'search' : 'lid'); }
+  else { saveBulkCfg({ filter }); bulkSetInputMode(search ? 'search' : 'ids'); }
 }
 
 // ── API Settings ───────────────────────────────────────────────────────────────
@@ -1866,6 +2250,8 @@ function resetWorkspaceData() {
     exportRenderTable();
     document.getElementById('bulk-location-id').value = '';
     document.getElementById('bulk-location-name').textContent = '';
+    psLocRows = null;
+    ['export', 'bulk'].forEach(pre => { const el = psEl(pre, 'loc'); el.value = ''; delete el.dataset.id; el.dispatchEvent(new Event('change')); });
     bulkRenderTable();
   } catch (e) { /* tabs not initialised yet */ }
 }
@@ -2822,7 +3208,8 @@ async function openLocPicker(target) {
   }
   try {
     const locs = await fcGetAllLocations(token, n => { body.innerHTML = `<div class="loc-loading">Loading locations… ${n}</div>`; });
-    const current = document.getElementById(locPickerTarget + '-location-id').value.trim();
+    const psLoc   = locPickerTarget.endsWith('-ps') && document.getElementById(locPickerTarget + '-loc');
+    const current = psLoc ? psLoc.dataset.id || '' : document.getElementById(locPickerTarget + '-location-id').value.trim();
     const rows = locBuildRows(locs);
     rows.forEach(r => locPaths.set(r.id, r.path));
     // Moving to the workspace root is a valid bulk-edit target (locationId: null).
@@ -2869,6 +3256,15 @@ function locFilter(q) {
 }
 
 function selectLocation(id, name) {
+  if (locPickerTarget.endsWith('-ps')) {   // "Select by: In location": path shown, ID kept
+    const el = document.getElementById(locPickerTarget + '-loc');
+    el.value = name;
+    el.dispatchEvent(new Event('input'));
+    el.dataset.id = id;
+    el.dispatchEvent(new Event('change'));
+    closeLocPicker();
+    return;
+  }
   document.getElementById(locPickerTarget + '-location-id').value = id;
   document.getElementById(locPickerTarget + '-location-name').textContent = name;
   closeLocPicker();
@@ -3119,7 +3515,8 @@ async function exportFetchAll() {
   exportFlushSettings();
   const cfg  = loadExportCfg();
   const mode = cfg.inputMode || 'lid';
-  if (mode === 'search') return exportFetchSearch(cfg);
+  if (mode === 'search') return exportFetchSearch(cfg, mode);
+  if (!psIsId('export')) return exportFetchSearch(cfg, 'prop');
 
   const rawLines = document.getElementById('export-ids').value
     .split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -3185,25 +3582,40 @@ async function exportResolveLocations(token, objects, status) {
   }
 }
 
-// Gridify search mode: one query, every match becomes a row (capped like Bulk Edit).
-async function exportFetchSearch(cfg) {
+// Advanced search (one Gridify query) and By property (queries built by psBuild):
+// every match becomes a row (capped like Bulk Edit).
+async function exportFetchSearch(cfg, mode) {
   const status = document.getElementById('export-status');
   const btn    = document.getElementById('export-fetch-btn');
   const wrap   = document.getElementById('export-progress-wrap');
   const bar    = document.getElementById('export-progress-bar');
   const filter = document.getElementById('export-filter').value.trim();
-  if (!filter) { status.textContent = 'Enter a Gridify filter.'; return; }
-  saveExportCfg({ ...cfg, filter });
+  const dateFmt = cfg.dateFormat || 'YYYY-MM-DD';
+  status.title = '';
+  if (mode === 'search' && !filter) { status.textContent = 'Enter a search query.'; return; }
+  if (mode === 'search') saveExportCfg({ ...cfg, filter });
+  if (mode === 'prop') { const p = psBuild('export', dateFmt); if (p.error) { status.textContent = p.error; return; } }
 
   btn.disabled = true;
   status.textContent = 'Authenticating…';
   wrap.classList.add('active'); bar.style.width = '0%';
   try {
     const token = await fcLogin();
-    const { objects, count } = await fcGridifySearch(token, filter, (n, c) => {
-      status.textContent = `Loading ${n} / ${c}…`;
-      bar.style.width = (c ? Math.round((n / Math.min(c, BULK_MAX_ITEMS)) * 100) : 100) + '%';
-    }, BULK_MAX_ITEMS);
+    let objects, count, report = '', missing = [];
+    if (mode === 'prop') {
+      await psEnsureProps(token);
+      const res = await psSearch(token, psBuild('export', dateFmt), (i, q, n, c) => {
+        status.textContent = `Searching ${q > 1 ? `part ${i + 1} / ${q}, ` : ''}${n} / ${c}…`;
+        bar.style.width = Math.round(((i + (c ? n / c : 1)) / q) * 100) + '%';
+      }, BULK_MAX_ITEMS);
+      ({ objects, report, missing } = res);
+      count = res.capped ? Infinity : objects.length;
+    } else {
+      ({ objects, count } = await fcGridifySearch(token, filter, (n, c) => {
+        status.textContent = `Loading ${n} / ${c}…`;
+        bar.style.width = (c ? Math.round((n / Math.min(c, BULK_MAX_ITEMS)) * 100) : 100) + '%';
+      }, BULK_MAX_ITEMS));
+    }
 
     await exportResolveLocations(token, objects, status);
 
@@ -3213,7 +3625,10 @@ async function exportFetchSearch(cfg) {
     });
     exportRenderTable();
     status.textContent = objects.length + ' item' + (objects.length !== 1 ? 's' : '') + ' loaded' +
-      (count > objects.length ? ` (search matched ${count}, only the first ${objects.length} were loaded; narrow the filter)` : '');
+      (count === Infinity ? ` (more matched; only the first ${objects.length} were loaded, narrow the selection)`
+        : count > objects.length ? ` (search matched ${count}, only the first ${objects.length} were loaded; narrow the filter)` : '') +
+      (report ? '. ' + report : '');
+    status.title = missing.length ? 'Not found:\n' + missing.join('\n') : '';
   } catch (e) {
     status.textContent = e.message;
   } finally {
@@ -3282,6 +3697,7 @@ function exportRenderTable() {
   const scroller = document.getElementById('export-scroll');
   const scrollLeft = scroller.scrollLeft;
   document.getElementById('export-count-badge').textContent = exportRows.filter(r => r.ok).length;
+  exportUpdateAllPropsBtn(cols);
 
   document.getElementById('export-table-head').innerHTML =
     `<th class="th-preview-id" title="Not included in the export">Input ID</th>` +
@@ -3374,20 +3790,75 @@ function exportAddCol() {
   const sc = document.getElementById('export-scroll'); sc.scrollLeft = sc.scrollWidth;
 }
 
-/** One column per workspace property that is not shown yet (numbers: value + unit). */
-async function exportAddAllProps() {
-  if (!loadWsProps()) await exportRefreshProps();
+/** Columns + All properties would add: one per workspace property not shown yet
+ *  (numbers: value + unit). These are marked auto and last only for this visit
+ *  (exportDropAutoCols); picking a column in its dropdown makes it a normal one. */
+function exportMissingPropCols(cols) {
   const ws = (loadWsProps() || {}).props || [];
-  if (!ws.length) return;
-  const cols = exportCols();
   const have = new Set(cols.filter(c => !c.isSystem && !c.isPlaceholder).map(c => c.name.toLowerCase()));
+  const out = [];
+  const add = (name, extra) => { if (!have.has(name.toLowerCase())) { out.push({ id: exportNewColId(), name, isPlaceholder: false, auto: true, ...extra }); have.add(name.toLowerCase()); } };
   ws.forEach(p => {
-    const add = (name, extra) => { if (!have.has(name.toLowerCase())) { cols.push({ id: exportNewColId(), name, isPlaceholder: false, ...extra }); have.add(name.toLowerCase()); } };
     if (colTypeHasUnit(p.type)) { add(p.name + ' (value)'); add(p.name + ' (unit)', p.unit ? { _unit: p.unit } : {}); }
     else add(p.name);
   });
-  exportSaveCols(cols);
+  return out;
+}
+
+// One button, two jobs: + All properties while workspace properties are missing,
+// Remove empty columns once every property is shown.
+function exportAllPropsMode(cols) {
+  return loadWsProps() && !exportMissingPropCols(cols).length ? 'remove' : 'add';
+}
+function exportUpdateAllPropsBtn(cols) {
+  const btn = document.getElementById('export-allprops-btn');
+  const loaded = exportRows.some(r => r.ok);
+  if (exportAllPropsMode(cols) === 'remove') {
+    btn.textContent = 'Remove empty columns';
+    btn.title = loaded ? 'Remove property columns that have no value in any loaded item (columns with a header name stay)' : 'Load items first';
+    btn.disabled = !loaded;
+  } else {
+    btn.textContent = '+ All properties';
+    btn.title = 'Add a column for every workspace property not shown yet';
+    btn.disabled = false;
+  }
+}
+async function exportAllPropsClick() {
+  if (exportAllPropsMode(exportCols()) === 'remove') exportRemoveEmptyCols();
+  else await exportAddAllProps();
+}
+
+async function exportAddAllProps() {
+  if (!loadWsProps()) await exportRefreshProps();
+  const cols = exportCols();
+  const add = exportMissingPropCols(cols);
+  if (!add.length) { exportRenderTable(); return; }
+  exportSaveCols(cols.concat(add));
   exportRenderTable();
+}
+
+/** Drops columns without a value in any loaded item. Columns added as empty
+ *  (with an optional header name) are kept, and so is at least one column.
+ *  The columns left are the chosen setup: they lose the auto mark and are
+ *  remembered for the next visit. */
+function exportRemoveEmptyCols() {
+  const rows = exportRows.filter(r => r.ok);
+  if (!rows.length) return;
+  const dateFmt = loadExportCfg().dateFormat || 'YYYY-MM-DD';
+  const cols = exportCols();
+  let keep = cols.filter(c => c.isPlaceholder || rows.some(r => String(exportCellValue(r, c, dateFmt)).trim()));
+  if (!keep.length) keep = cols.slice(0, 1);
+  const n = cols.length - keep.length;
+  exportSaveCols(keep.map(({ auto, ...c }) => c));
+  exportRenderTable();
+  document.getElementById('export-status').textContent = n ? `${n} empty column${n !== 1 ? 's' : ''} removed.` : 'No empty columns.';
+}
+
+// On page load: remove the columns + All properties added during an earlier visit.
+function exportDropAutoCols() {
+  const cfg = loadExportCfg();
+  if (!Array.isArray(cfg.columns) || !cfg.columns.some(c => c && c.auto)) return;
+  saveExportCfg({ ...cfg, columns: cfg.columns.filter(c => !(c && c.auto)) });
 }
 
 async function exportRefreshProps() {
@@ -3483,7 +3954,7 @@ function exportDownloadCSV() {
   a.click();
 }
 
-// ── Export settings card (step 1) ──────────────────────────────────────────────
+// ── Export settings card (step 2) ──────────────────────────────────────────────
 // Collapsible like the Import settings; date format and header row, saved on change.
 
 function exportToggleSettings(open) {
@@ -3505,6 +3976,8 @@ function exportInitSettings() {
   document.getElementById('export-date-format').value = cfg.dateFormat || 'YYYY-MM-DD';
   document.getElementById('export-include-header').checked = cfg.includeHeader !== false;
   document.getElementById('export-settings-status').textContent = '';
+  psInit('export', cfg.propSel, patch => saveExportCfg({ ...loadExportCfg(), ...patch }),
+    () => loadExportCfg().dateFormat || 'YYYY-MM-DD', exportFetchAll);
   exportUpdateSettingsSummary();
   exportRenderTable();
 }
@@ -3521,20 +3994,22 @@ function exportSettingsChanged() {
 }
 function exportFlushSettings() { /* settings save immediately on change */ }
 
-// Switch on the Export card: Label IDs / UUIDs or Gridify search. Configs from
-// older versions may still say 'property' (removed mode); they fall back to IDs.
+// Switch on the Export card: By ID or property ('lid') or Advanced search (a
+// Gridify query as typed). Older configs may say 'prop' (separate mode in early
+// 1.5 builds) or 'property' (the slow former mode); both open By ID or property.
+const EXPORT_INPUT_MODES = ['lid', 'search'];
 function exportSetInputMode(mode) {
-  saveExportCfg({ ...loadExportCfg(), inputMode: mode === 'search' ? 'search' : 'lid' });
+  saveExportCfg({ ...loadExportCfg(), inputMode: EXPORT_INPUT_MODES.includes(mode) ? mode : 'lid' });
   exportUpdateInputMode();
 }
 
 function exportUpdateInputMode() {
   const cfg = loadExportCfg();
-  const isSearch = cfg.inputMode === 'search';
-  document.getElementById('export-seg-lid').classList.toggle('active', !isSearch);
-  document.getElementById('export-seg-search').classList.toggle('active', isSearch);
-  document.getElementById('export-ids-wrap').classList.toggle('is-hidden', isSearch);
-  document.getElementById('export-search-wrap').classList.toggle('is-hidden', !isSearch);
+  const mode = EXPORT_INPUT_MODES.includes(cfg.inputMode) ? cfg.inputMode : 'lid';
+  [['lid', 'ids'], ['search', 'search']].forEach(([m, pane]) => {
+    document.getElementById('export-seg-' + m).classList.toggle('active', mode === m);
+    document.getElementById(`export-${pane}-wrap`).classList.toggle('is-hidden', mode !== m);
+  });
   const filterEl = document.getElementById('export-filter');
   if (!filterEl.value && cfg.filter) filterEl.value = cfg.filter;
 }
@@ -3548,9 +4023,11 @@ function exportUpdateInputMode() {
 // MODULE B: BULK EDIT
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Public API v2 coverage (swagger 2.0-public, checked 2026-09-23):
+// Public API v2 coverage (swagger 2.0-public, checked 2026-10-29):
 //   set value  → POST /v2/properties (new) or PUT /v2/properties/{id} (existing), one call per item
-//   move       → PATCH /v2/objects/bulk-edit, up to 100 objects per call, all-or-nothing
+//   clear      → PUT /v2/properties/{id} with every value field null (values are replaced, not patched)
+//   move, label → PATCH /v2/objects/bulk-edit, up to 100 objects per call, all-or-nothing;
+//                label lines 1-3 only (line 4 is not editable), 8 characters each
 //   remove / rename / archive → no endpoint yet; not shown in the UI.
 // To enable one later: implement it in bulkApply and flip `available`.
 // Archive (Danger Zone) was removed from the UI until the API has an endpoint.
@@ -3560,13 +4037,16 @@ const BULK_MAX_ITEMS  = 1000;         // cap for Gridify results loaded into the
 const BULK_EDIT_CHUNK = 100;          // PATCH /objects/bulk-edit limit
 
 const BULK_ACTIONS = [
-  { key: 'set',    label: 'Set value',        available: true },
+  { key: 'set',    label: 'Set property',     available: true },
+  { key: 'clear',  label: 'Clear property',   available: true },
+  { key: 'label',  label: 'Change name',      available: true },
   { key: 'remove', label: 'Remove property',  available: false,
     reason: 'The FLUICS public API v2 has no endpoint to delete a property.' },
   { key: 'rename', label: 'Rename property',  available: false,
     reason: 'The FLUICS public API v2 treats property names as immutable (PUT /properties cannot change the name).' },
-  { key: 'move',   label: 'Move to location', available: true },
+  { key: 'move',   label: 'Move location',    available: true },
 ];
+const BULK_PROP_ACTIONS = ['set', 'clear', 'remove', 'rename'];
 
 let bulkItems  = [];
 // Parameters of the last run. While they are unchanged the table shows the
@@ -3575,7 +4055,8 @@ let bulkItems  = [];
 let bulkResultSig = null;
 function bulkParamSig() {
   const v = id => (document.getElementById(id) || {}).value || '';
-  return JSON.stringify([bulkAction, v('bulk-prop').trim(), v('bulk-value'), v('bulk-unit').trim(), v('bulk-type'), v('bulk-location-id')]);
+  return JSON.stringify([bulkAction, v('bulk-prop').trim(), bulkValueEl().value, v('bulk-unit').trim(), v('bulk-type'), v('bulk-location-id'),
+    ...bulkLabelLines().map(w => w === undefined ? '~keep' : w)]);
 }  // [{input, ok, error?, id, lid, name, objectType, locationId, locationName, props, status?}]
 let bulkAction = 'set';
 const bulkPropTypes = new Map();  // lower-case name → {name, type, unit}
@@ -3588,11 +4069,14 @@ function saveBulkCfg(patch) { localStorage.setItem('fcm_bulk', JSON.stringify({ 
 
 // ── Step 1: item selection ─────────────────────────────────────────────────────
 
+// By ID or property ('ids') or Advanced search; 'prop' from early 1.5 builds opens 'ids'.
+const BULK_INPUT_MODES = ['ids', 'search'];
 function bulkSetInputMode(mode) {
-  document.getElementById('bulk-ids-wrap').classList.toggle('is-hidden', mode !== 'ids');
-  document.getElementById('bulk-search-wrap').classList.toggle('is-hidden', mode !== 'search');
-  document.getElementById('bulk-mode-ids').classList.toggle('active', mode === 'ids');
-  document.getElementById('bulk-mode-search').classList.toggle('active', mode === 'search');
+  if (!BULK_INPUT_MODES.includes(mode)) mode = 'ids';
+  BULK_INPUT_MODES.forEach(m => {
+    document.getElementById(`bulk-${m}-wrap`).classList.toggle('is-hidden', mode !== m);
+    document.getElementById('bulk-mode-' + m).classList.toggle('active', mode === m);
+  });
   saveBulkCfg({ inputMode: mode });
 }
 
@@ -3631,9 +4115,11 @@ function bulkNormalize(obj, input) {
   const locationId = obj.locationId ?? obj.LocationId ?? null;
   const props = obj.properties || obj.Properties || [];
   bulkLearnProps(props);
+  const line = n => obj['labelLine' + n] ?? obj['LabelLine' + n] ?? cl['labelLine' + n] ?? cl['LabelLine' + n] ?? '';
   return {
     input: input || lid || id, ok: true, id, lid,
     name: objDisplayName(obj),
+    lines: [line(1), line(2), line(3)].map(s => s || ''),
     objectType: obj.objectType || obj.ObjectType || '',
     locationId,
     locationName: extractSysFields(obj, input || id).locationName || (locationId && locPaths.get(locationId)) || '',
@@ -3642,7 +4128,8 @@ function bulkNormalize(obj, input) {
 }
 
 async function bulkLoadItems() {
-  const mode   = loadBulkCfg().inputMode || 'ids';
+  let mode     = loadBulkCfg().inputMode === 'search' ? 'search' : 'ids';
+  if (mode === 'ids' && !psIsId('bulk')) mode = 'prop';
   const status = document.getElementById('bulk-status');
   const btn    = document.getElementById('bulk-load-btn');
   const bar    = document.getElementById('bulk-progress-bar');
@@ -3651,8 +4138,10 @@ async function bulkLoadItems() {
   const inputs = mode === 'ids' ? bulkParseIds(document.getElementById('bulk-ids').value) : [];
   const filter = document.getElementById('bulk-filter').value.trim();
   if (mode === 'ids' && !inputs.length) { status.textContent = 'Nothing entered.'; return; }
-  if (mode === 'search' && !filter)     { status.textContent = 'Enter a Gridify filter.'; return; }
+  if (mode === 'search' && !filter)     { status.textContent = 'Enter a search query.'; return; }
   if (mode === 'search') saveBulkCfg({ filter });
+  status.title = '';
+  if (mode === 'prop') { const p = psBuild('bulk', 'YYYY-MM-DD'); if (p.error) { status.textContent = p.error; return; } }
 
   btn.disabled = true;
   status.textContent = 'Authenticating…';
@@ -3671,6 +4160,16 @@ async function bulkLoadItems() {
         catch (e) { rows.push({ input: inputs[i], ok: false, error: e.message }); }
         bar.style.width = Math.round(((i + 1) / inputs.length) * 100) + '%';
       }
+    } else if (mode === 'prop') {
+      await psEnsureProps(token);
+      const res = await psSearch(token, psBuild('bulk', 'YYYY-MM-DD'), (i, q, n, c) => {
+        status.textContent = `Searching ${q > 1 ? `part ${i + 1} / ${q}, ` : ''}${n} / ${c}…`;
+        bar.style.width = Math.round(((i + (c ? n / c : 1)) / q) * 100) + '%';
+      }, BULK_MAX_ITEMS);
+      rows = res.objects.map(o => bulkNormalize(o, ''));
+      if (res.capped) note = ` (more matched; only the first ${res.objects.length} were loaded, narrow the selection)`;
+      if (res.report) note += '. ' + res.report;
+      status.title = res.missing.length ? 'Not found:\n' + res.missing.join('\n') : '';
     } else {
       // The filter is sent as written; archived items are included unless it says
       // isArchived=false (pasted IDs and the location picker do exclude them).
@@ -3733,14 +4232,17 @@ function bulkSetAction(key) {
   bulkAction = a ? key : 'set';
   saveBulkCfg({ action: bulkAction });
   const isSet = bulkAction === 'set';
-  document.getElementById('bulk-fields-prop').style.display  = ['set', 'remove', 'rename'].includes(bulkAction) ? '' : 'none';
+  document.getElementById('bulk-fields-prop').style.display  = BULK_PROP_ACTIONS.includes(bulkAction) ? '' : 'none';
   document.getElementById('bulk-fields-move').style.display  = bulkAction === 'move' ? '' : 'none';
+  document.getElementById('bulk-fields-label').style.display = bulkAction === 'label' ? '' : 'none';
   document.getElementById('bulk-field-type').style.display   = isSet ? '' : 'none';
   document.getElementById('bulk-field-value').style.display  = isSet ? '' : 'none';
   document.getElementById('bulk-field-newname').style.display = bulkAction === 'rename' ? '' : 'none';
   document.getElementById('bulk-action-note').textContent = {
     set:  'Items that don’t have this property yet get it automatically. Existing values are overwritten. Multi-value lists are replaced, not appended.',
+    clear: 'Empties the value (and unit) of this property. The property itself stays on the item: the FLUICS API cannot delete properties yet. Items without the property are skipped.',
     move: 'Moves are sent in batches of 100. If any item in a batch cannot be moved, none of that batch is moved. A series and one of its items cannot be moved together.',
+    label: 'Sets the printed label lines (up to 8 letters, digits or spaces each). Empty fields keep the current line; Clear line empties it. Line 4 cannot be changed through the API. Changes are sent in batches of 100, all-or-nothing per batch; reprint the labels afterwards.',
   }[bulkAction] || '';
   bulkRenderActions();
   bulkOnTypeChange();
@@ -3763,13 +4265,33 @@ function bulkOnPropChange() {
   bulkOnTypeChange();
 }
 
+// Text properties get a growing multi-line box, every other type the one-line
+// input (date picker, number keyboard, ;-separated list values).
+function bulkValueEl() {
+  return document.getElementById(bulkSelectedType() === 3 ? 'bulk-value-text' : 'bulk-value');
+}
+
+function bulkGrowText(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight + 4, 220) + 'px';
+}
+
 function bulkOnTypeChange() {
   const t     = bulkSelectedType();
   const input = document.getElementById('bulk-value');
+  const ta    = document.getElementById('bulk-value-text');
+  const multi = t === 3;
+  const shown = (multi ? input : ta).parentNode.style.display !== 'none';
+  if (multi && shown && input.type === 'text') ta.value = input.value;
+  if (!multi && ta.parentNode.style.display !== 'none') input.value = input.type === 'text' ? ta.value.replace(/\s*\n\s*/g, ' ') : '';
+  input.parentNode.style.display = multi ? 'none' : '';
+  ta.parentNode.style.display    = multi ? '' : 'none';
+  document.getElementById('bulk-value-label').htmlFor = multi ? 'bulk-value-text' : 'bulk-value';
+  if (multi) bulkGrowText(ta);
   const want  = t === 4 ? 'date' : 'text';
   if (input.type !== want) { input.value = ''; input.type = want; }
   input.inputMode   = (t === 1 || t === 2) ? 'decimal' : 'text';
-  input.placeholder = { 1: 'e.g. 42', 2: 'e.g. 1.5', 7: 'value;value;…' }[t] || '';
+  input.placeholder = { 1: 'e.g. 42', 2: 'e.g. 1.5', 7: 'value;value;…' }[t] || ' ';
   document.getElementById('bulk-value-label').textContent = t === 7 ? 'New values (separate with ;)' : 'New value';
   document.getElementById('bulk-field-unit').style.display = (bulkAction === 'set' && (t === 1 || t === 2)) ? '' : 'none';
   bulkRefreshValueList();
@@ -3833,6 +4355,7 @@ function bulkRefreshValueList() {
   const t = bulkSelectedType();
   c.setEnabled(t !== 1 && t !== 2 && t !== 4);
   c.refresh();
+  document.getElementById('bulk-value-text')._combo.refresh();
 }
 
 // Converts the raw input into the API value field for a data type.
@@ -3890,7 +4413,7 @@ function bulkLocText(r) {
 function bulkPlan(item) {
   if (bulkAction === 'set') {
     const name = document.getElementById('bulk-prop').value.trim();
-    const raw  = document.getElementById('bulk-value').value;
+    const raw  = bulkValueEl().value;
     const unit = document.getElementById('bulk-unit').value.trim();
     if (!name) return null;
     const existing = bulkFindProp(item, name);
@@ -3904,6 +4427,14 @@ function bulkPlan(item) {
       return { before, after, change: !existing || before !== after };
     } catch (e) { return { before, after: e.message, change: false, error: true }; }
   }
+  if (bulkAction === 'clear') {
+    const name = document.getElementById('bulk-prop').value.trim();
+    if (!name) return null;
+    const existing = bulkFindProp(item, name);
+    if (!existing) return { before: '', after: 'not on this item, skipped', change: false, skip: true };
+    const before = bulkFmtProp(existing);
+    return { before, after: before ? '(empty)' : '', change: !!before };
+  }
   if (bulkAction === 'move') {
     const target = bulkTarget();
     const before = bulkLocText(item);
@@ -3911,7 +4442,48 @@ function bulkPlan(item) {
     const same = target.id === BULK_ROOT ? !item.locationId : target.id === item.locationId;
     return { before, after: target.name, change: !same };
   }
+  if (bulkAction === 'label') {
+    const cur  = item.lines || ['', '', ''];
+    const want = bulkLabelLines();
+    const next = cur.map((l, k) => want[k] === undefined ? l : want[k] || '');
+    const before = bulkFmtLines(cur);
+    if (want.every(w => w === undefined)) return { before, after: '', change: false };
+    return { before, after: bulkFmtLines(next) || '(empty)', change: next.some((l, k) => l !== cur[k]), lines: next };
+  }
   return null;
+}
+
+// Label lines from the form: a string sets the line, undefined keeps it. A
+// cleared line is null for line 3 (documented) and "" for lines 1 and 2, which
+// the API documents no clear value for (null would make series items inherit).
+function bulkLabelLines() {
+  return [1, 2, 3].map(k => {
+    const el = document.getElementById('bulk-label-' + k);
+    if (el.dataset.cleared) return k === 3 ? null : '';
+    return sanitizeLabelSeg(el.value) || undefined;
+  });
+}
+function bulkFmtLines(lines) { return lines.filter(Boolean).join(' / '); }
+
+// Strips characters a label cannot print while typing; a trailing space stays
+// so "AB CD" can be entered (sanitizeLabelSeg trims it when the plan is made).
+function bulkOnLabelInput(el) {
+  const typed = el.value.replace(LABEL_ALLOWED_RE, '').replace(/\s+/g, ' ').replace(/^ /, '').slice(0, LABEL_SEG_MAX);
+  if (typed !== el.value) el.value = typed;
+  bulkRenderTable();
+}
+// "Clear line N" greys the field out as "cleared"; a second click ("Undo")
+// goes back to keep.
+function bulkToggleLabelClear(k) {
+  const el  = document.getElementById('bulk-label-' + k);
+  const btn = document.getElementById('bulk-label-' + k + '-clr');
+  const on  = !el.dataset.cleared;
+  if (on) { el.value = ''; el.dataset.cleared = '1'; } else delete el.dataset.cleared;
+  el.disabled = on;
+  el.placeholder = on ? 'cleared' : 'keep';
+  btn.textContent = on ? 'Undo' : 'Clear line ' + k;
+  btn.classList.toggle('on', on);
+  bulkRenderTable();
 }
 
 function bulkValidate() {
@@ -3919,8 +4491,10 @@ function bulkValidate() {
   if (!loaded.length) return { ok: false, msg: 'Load items first.' };
   if (bulkAction === 'set') {
     if (!document.getElementById('bulk-prop').value.trim()) return { ok: false, msg: 'Choose a property.' };
-    if (!document.getElementById('bulk-value').value.trim()) return { ok: false, msg: 'Enter a value.' };
+    if (!bulkValueEl().value.trim()) return { ok: false, msg: 'Enter a value.' };
   }
+  if (bulkAction === 'clear' && !document.getElementById('bulk-prop').value.trim()) return { ok: false, msg: 'Choose a property.' };
+  if (bulkAction === 'label' && bulkLabelLines().every(w => w === undefined)) return { ok: false, msg: 'Enter at least one label line.' };
   if (bulkAction === 'move') {
     const t = bulkTarget();
     if (!t) return { ok: false, msg: 'Choose a target location.' };
@@ -3932,7 +4506,7 @@ function bulkValidate() {
   const n = plans.filter(p => p && p.change).length;
   if (!n) return { ok: false, msg: 'Nothing to change: all loaded items already have this value.' };
   const skip = loaded.length - n;
-  return { ok: true, n, msg: skip ? (skip === 1 ? '1 item already matches' : skip + ' items already match') + ' and will be skipped.' : '' };
+  return { ok: true, n, msg: skip ? (skip === 1 ? '1 item needs no change' : skip + ' items need no change') + ' and will be skipped.' : '' };
 }
 
 // ── Preview table ──────────────────────────────────────────────────────────────
@@ -3952,7 +4526,7 @@ function bulkRenderTable() {
   applyBtn.disabled = !v.ok;
   applyBtn.textContent = !v.ok ? 'Apply' : showResults ? `Retry ${v.n} failed` : `Apply to ${v.n} item${v.n !== 1 ? 's' : ''}`;
   document.getElementById('bulk-apply-hint').textContent = showResults
-    ? 'Showing the result of the last run. Change the property, value or location to preview the next edit.'
+    ? 'Showing the result of the last run. Change the settings above to preview the next edit.'
     : v.msg;
 
 
@@ -3966,10 +4540,11 @@ function bulkRenderTable() {
 
   const prop = document.getElementById('bulk-prop').value.trim();
   // Results view: value before the run, value now, and the Result column.
-  const subject = bulkAction === 'set' && prop ? prop : 'location';
-  const [h1, h2] = showResults ? ['Previous ' + subject, (bulkAction === 'set' && prop ? prop : 'Location') + ' now']
-    : bulkAction === 'set' && prop ? ['Current ' + prop, 'New ' + prop]
-    : bulkAction === 'move' ? ['Current location', 'New location']
+  const isProp  = (bulkAction === 'set' || bulkAction === 'clear') && prop;
+  const subject = isProp ? prop : bulkAction === 'label' ? 'label' : 'location';
+  const Subject = subject.charAt(0).toUpperCase() + subject.slice(1);
+  const [h1, h2] = showResults ? ['Previous ' + subject, (isProp ? prop : Subject) + ' now']
+    : isProp || bulkAction === 'move' || bulkAction === 'label' ? ['Current ' + subject, 'New ' + subject]
     : ['Location', null];
   const hasStatus = showResults;
 
@@ -3988,15 +4563,14 @@ function bulkRenderTable() {
     const plan = bulkPlan(r);
     let cells;
     if (showResults) {
-      const now = bulkAction === 'set' ? ((plan && plan.before) || '—')
-        : bulkLocText(r);
+      const now = bulkAction === 'move' ? bulkLocText(r) : ((plan && plan.before) || '—');
       const changed = r.status && r.status.ok;
       cells = `<td class="td-old">${escHtml(r.prev || '—')}</td>` +
               `<td class="${changed ? 'td-new' : 'td-val'}">${escHtml(now)}</td>`;
     } else if (h2) {
       const cls = !plan || !plan.after ? 'td-new unchanged' : plan.error ? 'td-new invalid' : plan.change ? 'td-new' : 'td-new unchanged';
       cells = `<td class="td-old">${escHtml(plan ? plan.before || '—' : '')}</td>` +
-              `<td class="${cls}">${escHtml(plan ? (plan.after ? plan.after + (plan.change || plan.error ? '' : '  (no change)') : '') : '')}</td>`;
+              `<td class="${cls}">${escHtml(plan ? (plan.after ? plan.after + (plan.change || plan.error || plan.skip ? '' : '  (no change)') : '') : '')}</td>`;
     } else {
       cells = `<td class="td-val">${escHtml(bulkLocText(r))}</td>`;
     }
@@ -4117,6 +4691,60 @@ async function bulkSetOne(token, item, name, selType, unit, raw) {
   throw new Error(fails.join(' · '));
 }
 
+// Empties one property: PUT with every value field null and no unit (the API
+// replaces value fields and clears the unit when it is omitted). As with Set,
+// the item only counts as failed if a re-read still shows a value.
+const BULK_NULL_VALUES = { intValue: null, decimalValue: null, stringValue: null, dateTimeValue: null };
+function bulkPropEmpty(prop) {
+  return !prop || ['intValue', 'decimalValue', 'stringValue', 'dateTimeValue'].every(f => prop[f] == null || prop[f] === '');
+}
+async function bulkClearOne(token, item, name) {
+  let existing = bulkFindProp(item, name);
+  if (!existing || !existing.id) throw new Error('property not on this item');
+  const t = existing.dataTypeId || existing.DataTypeId;
+  const res = await bulkWriteProp(token, 'PUT', '/v2/properties/' + existing.id,
+    { id: existing.id, objectId: item.id, name: existing.name || name, dataTypeId: t, ...BULK_NULL_VALUES });
+  let reread = '';
+  try {
+    const fresh = await fcGetObjectRaw(token, item.id);
+    item.props = fresh.properties || fresh.Properties || [];
+    existing = bulkFindProp(item, name);
+  } catch (e) { reread = 're-read ' + e.message; }
+  if (!reread && bulkPropEmpty(existing)) return res.ok ? '' : 'cleared; API answered PUT ' + res.status;
+  if (res.ok && reread) { Object.assign(existing, BULK_NULL_VALUES, { unit: null }); return ''; }
+  throw new Error(res.ok ? 'API accepted the change but the value is still there' + (reread ? ' (' + reread + ')' : '')
+    : 'PUT ' + res.status + (res.detail ? ' ' + res.detail : ''));
+}
+
+// PATCH /v2/objects/bulk-edit in chunks of 100. body(item) gives the fields to
+// send, applied(item) updates the loaded row and returns the log text.
+async function bulkPatchChunks(token, targets, verb, body, applied, done) {
+  const n = targets.length;
+  for (let i = 0; i < n; i += BULK_EDIT_CHUNK) {
+    const chunk = targets.slice(i, i + BULK_EDIT_CHUNK);
+    setImportProgressUI(Math.min(i + BULK_EDIT_CHUNK, n), n, verb);
+    let res = {}, status = 0, detail = '';
+    try {
+      const r = await fcFetchRetry(proxyBase() + '/v2/objects/bulk-edit', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ objects: chunk.map(it => ({ id: it.id, ...body(it) })) }),
+      });
+      status = r.status;
+      const text = await r.text();
+      try { res = JSON.parse(text) || {}; } catch { detail = text.slice(0, 200); }
+      if (r.ok && res.isSuccess !== false) {
+        chunk.forEach(it => done(it, true, applied(it)));
+        continue;
+      }
+    } catch (e) { detail = e.message; }
+    // All-or-nothing: the whole chunk failed. Attach per-object reasons where given.
+    const perObj = new Map((res.errors || []).map(e => [e.objectId, e.message || e.code]));
+    const why = res.errorMessage || res.errorCode || res.title || res.detail || detail || ('HTTP ' + status);
+    chunk.forEach(it => done(it, false, perObj.get(it.id) || ('Batch rejected: ' + why)));
+  }
+}
+
 async function bulkApply() {
   const v = bulkValidate();
   if (!v.ok) { alert(v.msg); return; }
@@ -4148,7 +4776,7 @@ async function bulkApply() {
 
   if (bulkAction === 'set') {
     const name = document.getElementById('bulk-prop').value.trim();
-    const raw  = document.getElementById('bulk-value').value;
+    const raw  = bulkValueEl().value;
     const unit = document.getElementById('bulk-unit').value.trim();
     const selType = bulkSelectedType();
     for (let i = 0; i < n; i++) {
@@ -4163,36 +4791,41 @@ async function bulkApply() {
     bulkLearnProps([{ name, dataTypeId: selType, unit }]);
   }
 
+  if (bulkAction === 'clear') {
+    const name = document.getElementById('bulk-prop').value.trim();
+    for (let i = 0; i < n; i++) {
+      setImportProgressUI(i + 1, n, 'Clearing ' + name);
+      try {
+        const note = await bulkClearOne(token, targets[i], name);
+        done(targets[i], true, '→ (empty)' + (note ? ' (' + note + ')' : ''));
+      }
+      catch (e) { done(targets[i], false, e.message); }
+    }
+  }
+
   if (bulkAction === 'move') {
     const target = bulkTarget();
     const locationId = target.id === BULK_ROOT ? null : target.id;
-    for (let i = 0; i < n; i += BULK_EDIT_CHUNK) {
-      const chunk = targets.slice(i, i + BULK_EDIT_CHUNK);
-      setImportProgressUI(Math.min(i + BULK_EDIT_CHUNK, n), n, 'Moving');
-      let res = {}, status = 0, detail = '';
-      try {
-        const r = await fcFetchRetry(proxyBase() + '/v2/objects/bulk-edit', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ objects: chunk.map(it => ({ id: it.id, locationId })) }),
-        });
-        status = r.status;
-        const text = await r.text();
-        try { res = JSON.parse(text) || {}; } catch { detail = text.slice(0, 200); }
-        if (r.ok && res.isSuccess !== false) {
-          chunk.forEach(it => {
-            it.locationId = locationId;
-            it.locationName = locationId ? target.name : '';
-            done(it, true, '→ ' + target.name);
-          });
-          continue;
-        }
-      } catch (e) { detail = e.message; }
-      // All-or-nothing: the whole chunk failed. Attach per-object reasons where given.
-      const perObj = new Map((res.errors || []).map(e => [e.objectId, e.message || e.code]));
-      const why = res.errorMessage || res.errorCode || res.title || res.detail || detail || ('HTTP ' + status);
-      chunk.forEach(it => done(it, false, perObj.get(it.id) || ('Batch rejected: ' + why)));
-    }
+    await bulkPatchChunks(token, targets, 'Moving', () => ({ locationId }), it => {
+      it.locationId = locationId;
+      it.locationName = locationId ? target.name : '';
+      return '→ ' + target.name;
+    }, done);
+  }
+
+  if (bulkAction === 'label') {
+    // Only the lines the form changes are sent; omitted fields keep their value.
+    const want = bulkLabelLines();
+    const plans = new Map(targets.map(it => [it, bulkPlan(it)]));
+    await bulkPatchChunks(token, targets, 'Changing labels', () => {
+      const b = {};
+      want.forEach((w, k) => { if (w !== undefined) b['labelLine' + (k + 1)] = w; });
+      return b;
+    }, it => {
+      const p = plans.get(it);
+      it.lines = p.lines;
+      return '→ ' + p.after;
+    }, done);
   }
 
   finalizeImport(ok, fail, 'updated');
@@ -4200,17 +4833,11 @@ async function bulkApply() {
   bulkRenderTable();
 }
 
-async function bulkLoadWorkspaceProps() {
-  const btn = document.getElementById('bulk-prop-load');
-  btn.disabled = true;
-  try {
-    btn.textContent = 'Loading…';
-    const props = await fcGetWorkspacePropsFast(await fcLogin());
-    localStorage.setItem('fcm_ws_props', JSON.stringify({ at: new Date().toISOString(), props }));
-    bulkLearnProps(props.map(p => ({ name: p.name, dataTypeId: p.type, unit: p.unit })));
-    bulkOnPropChange();
-  } catch (e) { alert('Could not load properties: ' + e.message); }
-  finally { btn.textContent = 'From FLUICS'; btn.disabled = false; }
+// Workspace properties for the Property dropdown of step 2: the cached list
+// right away, loaded from FLUICS the first time the field gets focus.
+function bulkUseWorkspaceProps() {
+  const props = ((loadWsProps() || {}).props) || [];
+  bulkLearnProps(props.map(p => ({ name: p.name, dataTypeId: p.type, unit: p.unit })));
 }
 
 function bulkInitCombos() {
@@ -4218,13 +4845,20 @@ function bulkInitCombos() {
   if (prop._combo) return;
   makeCombo(prop, bulkPropOptions, {
     newLabel: q => `Use "${q}" as a new property`,
-    emptyText: 'Load items or click "From FLUICS" to list properties',
+    emptyText: 'No properties found yet: load items or type a name',
+    loading: () => psPropsLoading,
+  });
+  bulkUseWorkspaceProps();
+  prop.addEventListener('focus', () => {
+    bulkUseWorkspaceProps();   // a list Export or "Select by" loaded meanwhile
+    psAutoLoadProps(() => { bulkUseWorkspaceProps(); bulkOnPropChange(); });
   });
   makeCombo(document.getElementById('bulk-value'), bulkValueOptions, {
     newLabel: q => { const t = bulkSelectedType(); return t === 6 || t === 7 ? `Add "${q}" as a new list value` : null; },
     multi:    () => bulkSelectedType() === 7,
     loading:  () => { const e = bulkListValues.get(document.getElementById('bulk-prop').value.trim().toLowerCase()); return !!(e && e.loading); },
   });
+  makeCombo(document.getElementById('bulk-value-text'), bulkValueOptions);
 }
 
 function bulkInitFromCfg() {
@@ -4234,7 +4868,8 @@ function bulkInitFromCfg() {
     TYPE_OPTIONS.map(([v, l]) => `<option value="${v}">${escHtml(l.replace(/ \(.*\)$/, ''))}</option>`).join('');
   document.getElementById('bulk-filter').value = cfg.filter || '';
   document.getElementById('bulk-prop').value   = cfg.prop || '';
-  bulkSetInputMode(cfg.inputMode === 'search' ? 'search' : 'ids');
+  psInit('bulk', cfg.propSel, saveBulkCfg, () => 'YYYY-MM-DD', bulkLoadItems);
+  bulkSetInputMode(cfg.inputMode);
   bulkAction = cfg.action || 'set';
   bulkOnPropChange();
   bulkSetAction(bulkAction);
@@ -4301,15 +4936,24 @@ function sanitizeExportCfg(c) {
   });
   return {
     columns,
-    inputMode:     c.inputMode === 'search' ? 'search' : 'lid',
+    inputMode:     EXPORT_INPUT_MODES.includes(c.inputMode) ? c.inputMode : 'lid',
+    propSel:       sanitizePropSel(c.propSel),
     filter:        cfgStr(c.filter),
     dateFormat:    cfgStr(c.dateFormat) || 'YYYY-MM-DD',
     includeHeader: c.includeHeader !== false,
   };
 }
 
+function sanitizePropSel(p) {
+  p = p && typeof p === 'object' ? p : {};
+  const loc = p.loc && typeof p.loc === 'object' ? p.loc : {};
+  return { prop: cfgStr(p.prop), cond: PS_CONDS.some(([v]) => v === p.cond) ? p.cond : 'oneOf', active: p.active !== false,
+    loc: { text: cfgStr(loc.text), id: isUUID(cfgStr(loc.id)) ? cfgStr(loc.id) : '', sub: loc.sub !== false } };
+}
+
 function sanitizeBulkCfg(c) {
-  return { inputMode: c.inputMode === 'search' ? 'search' : 'ids', filter: cfgStr(c.filter), action: cfgStr(c.action) || 'set', prop: cfgStr(c.prop) };
+  return { inputMode: BULK_INPUT_MODES.includes(c.inputMode) ? c.inputMode : 'ids', filter: cfgStr(c.filter), action: cfgStr(c.action) || 'set', prop: cfgStr(c.prop),
+    propSel: sanitizePropSel(c.propSel) };
 }
 
 function configImport(input) {
@@ -4360,6 +5004,7 @@ importLoadItems();
 { const note = importDropIncompatible(); if (note) setTimeout(() => { document.getElementById('import-parse-status').textContent = note; }, 0); }
 importInitSettings();
 importRenderTable();
+exportDropAutoCols();
 exportInitSettings();
 exportUpdateInputMode();
 // Footer (the version is shown here, not in the page header)

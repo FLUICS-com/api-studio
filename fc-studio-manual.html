@@ -231,7 +231,7 @@
 <body>
 
 <header class="site-header">
-  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.4</span></h1>
+  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.5</span></h1>
   <a href="fc-studio.html" class="back-link">
     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -267,7 +267,7 @@
     <a href="#config">Configuration files</a>
     <a href="#datatypes">Data types reference</a>
     <a href="#tips">Tips &amp; gotchas</a>
-    <a href="#changelog">Changes in v1.4</a>
+    <a href="#changelog">Changes in v1.5</a>
   </nav>
 
   <!-- Main content -->
@@ -282,14 +282,14 @@
 
     <img src="img/01-overview.png" alt="Import tab with pasted rows mapped to workspace properties" class="screenshot">
     <p class="caption">The Import tab: pasted rows, each column mapped to a workspace property.</p>
-    <p>Switch between Import, Export, and Bulk Edit using the tab buttons in the header.</p>
+    <p>Switch between Import, Bulk Edit and Export with the three cards below the header; the highlighted card is the open module.</p>
 
     <table>
       <thead><tr><th>Module</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td><strong>Import</strong></td><td>Paste rows from Excel or a CSV, map the columns, preview the result, and register new items in FLUICS CONNECT.</td></tr>
-        <tr><td><strong>Export</strong></td><td>Paste a list of Label IDs or UUIDs (or use a Gridify search), choose which fields to pull, and get a table you can copy straight into Excel or save as CSV.</td></tr>
-        <tr><td><strong>Bulk Edit</strong></td><td>Select items by Label ID, UUID or Gridify search, then set a property value or move them to another location, with a before/after preview.</td></tr>
+        <tr><td><strong>Export</strong></td><td>Paste a list of Label IDs or UUIDs (or select them by property or advanced search), choose which fields to pull, and get a table you can copy straight into Excel or save as CSV.</td></tr>
+        <tr><td><strong>Bulk Edit</strong></td><td>Select items by Label ID, UUID, property or advanced search, then set or clear a property value, change the label lines or move them to another location, with a before/after preview.</td></tr>
       </tbody>
     </table>
 
@@ -422,8 +422,8 @@
         <table>
           <thead><tr><th>Mode</th><th>When to use</th></tr></thead>
           <tbody>
-            <tr><td>Label IDs / UUIDs</td><td>Paste one per line. Scanned links (<code>fcs.re/?aB3dE9</code>) work too. Duplicates are removed; archived items are listed as <em>Archived</em> and not edited.</td></tr>
-            <tr><td>Gridify search</td><td>Type a filter, e.g. <code>(isArchived=false,name=*LabelName/i)</code> (<code>/i</code> = ignore case, <code>*</code> = contains). The same search is available in the Export tab. Comma means AND, <code>|</code> means OR, parentheses group. Click one of the examples below the field to start from it, or build the query with the query builder of the Advanced search in the FLUICS CONNECT web app and paste it (see the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>). Archived items are included; add <code>,isArchived=false</code> to leave them out. Up to 1,000 matches are loaded.</td></tr>
+            <tr><td>By ID or property</td><td><em>Select by</em> is <strong>Label ID / UUID</strong> by default: paste IDs one per line. Scanned links (<code>fcs.re/?aB3dE9</code>) work too. Duplicates are removed; archived items are listed as <em>Archived</em> and not edited.<br><br><strong>In location</strong>: every item in one location. Click <em>Browse</em> to pick it from the location tree, or type its name, its path (<code>Lab B / Lost and found</code>) or its ID; a typed name is looked up when you load and must be unique, otherwise type the path. <em>Include sub-locations</em> (on by default) also loads the items in the locations inside it.<br><br>Or pick a property in <em>Select by</em> (the list of workspace properties loads by itself the first time you open it) and a condition. <em>is one of (list)</em>: paste or scan values into the same box, one per line, e.g. a scan list of external barcodes; the status line then says how many values were found, which were not found (hover it for the full list) and which are on more than one item. <em>equals</em> / <em>contains</em>: one value. <em>has a value</em>, <em>is empty</em>, <em>is on the item</em>: every item with that property, filled, empty, or either. <em>Active items only</em> leaves archived items out. The app writes the search for you (<em>Show query</em> displays it; lists are searched 20 values at a time) and checks every match against the property value again, so only exact matches are loaded. Multi-value lists match when one of their values is in the list. Up to 1,000 matches are loaded. The same mode is available in the Export tab.</td></tr>
+            <tr><td>Advanced search</td><td>Type a filter, e.g. <code>(isArchived=false,name=*LabelName/i)</code> (<code>/i</code> = ignore case, <code>*</code> = contains). The same search is available in the Export tab. Comma means AND, <code>|</code> means OR, parentheses group. Click one of the examples below the field to start from it, or build the query with the query builder of the Advanced search in the FLUICS CONNECT web app and paste it (see the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>). Archived items are included; add <code>,isArchived=false</code> to leave them out. Up to 1,000 matches are loaded.</td></tr>
           </tbody>
         </table>
         <p>Click <strong>Load items</strong>. The table at the bottom lists every item found; IDs that could not be found are shown in red. Click an ID to open the item in FLUICS CONNECT in a new tab. Remove single rows with the <strong>&times;</strong> button.</p>
@@ -437,8 +437,10 @@
         <table>
           <thead><tr><th>Action</th><th>What it does</th></tr></thead>
           <tbody>
-            <tr><td>Set value</td><td>Pick a property (click <strong>From FLUICS</strong> to list the workspace properties) and enter the new value. Items that don&rsquo;t have the property yet get it. The data type is taken from the existing property; for a new one, choose it. Numbers accept a unit, dates use a date picker, multi-value lists take <code>value;value</code> and replace the old list. Suggestions show the 20 most common values among the loaded items.</td></tr>
-            <tr><td>Move to location</td><td>Click <strong>Browse</strong> and pick the target location from the location tree (type to filter; parent locations of matches stay visible, IDs appear with <em>Show IDs</em>), or <em>Workspace root</em>. Items are moved in batches of 100; if one item in a batch cannot be moved, that batch is left unchanged.</td></tr>
+            <tr><td>Set property</td><td>Pick a property (the list of workspace properties loads by itself the first time you open it; you can also type a new name) and enter the new value. Items that don&rsquo;t have the property yet get it. The data type is taken from the existing property; for a new one, choose it. Text values can span several lines (Enter starts a new line, the box grows with the text). Numbers accept a unit, dates use a date picker, multi-value lists take <code>value;value</code> and replace the old list. Suggestions show the 20 most common values among the loaded items.</td></tr>
+            <tr><td>Clear property</td><td>Pick a property; its value (and unit) is emptied on every loaded item that has it. Items without the property are skipped. The property itself stays on the item, because the FLUICS public API cannot delete a property yet.</td></tr>
+            <tr><td>Change name</td><td>Change the name printed on the label: enter new text for label line 1, 2 and/or 3 (up to 8 letters, digits or spaces each). Empty fields keep the current line; <em>Clear line</em> under a field empties that line (<em>Undo</em> goes back to keep). Line 4 cannot be changed through the API. Items in a series take lines 1 and 2 from the series when both match the series values. Changes are sent in batches of 100 like moves. The printed labels do not change by themselves: reprint them afterwards.</td></tr>
+            <tr><td>Move location</td><td>Click <strong>Browse</strong> and pick the target location from the location tree (type to filter; parent locations of matches stay visible, IDs appear with <em>Show IDs</em>), or <em>Workspace root</em>. Items are moved in batches of 100; if one item in a batch cannot be moved, that batch is left unchanged.</td></tr>
           </tbody>
         </table>
         <p>Box 3 shows the current and new value for every item. Items that already have the new value are skipped.</p>
@@ -449,7 +451,7 @@
       <div class="step-num">3</div>
       <div class="step-body">
         <h3 id="bulk-run">Preview &amp; apply</h3>
-        <p>The Bulk Edit tab has the same three-box layout as Import and Export: <strong>1 · Select items</strong>, <strong>2 · Choose action</strong>, <strong>3 · Preview &amp; apply</strong>. Box 3 lists every item with its current and new value; the notes under its header say which items are skipped and why. Click <strong>Apply to N items</strong> in the toolbar of box 3; the edit starts right away (check the preview first). A progress window logs the result per item. Afterwards the table shows each item's previous value, its value now and a <em>Result</em> column; as soon as you change the property, value or location it switches back to the preview. If some items failed, <strong>Retry N failed</strong> sends only those again.</p>
+        <p>The Bulk Edit tab has the same three-box layout as Import and Export: <strong>1 · Select items</strong>, <strong>2 · Choose action</strong>, <strong>3 · Preview &amp; apply</strong>. Box 3 lists every item with its current and new value; the notes under its header say which items are skipped and why. Click <strong>Apply to N items</strong> in the toolbar of box 3; the edit starts right away (check the preview first). A progress window logs the result per item. Afterwards the table shows each item's previous value, its value now and a <em>Result</em> column; as soon as you change the settings in box 2 it switches back to the preview. If some items failed, <strong>Retry N failed</strong> sends only those again.</p>
         <img src="img/08-bulk-edit.png" alt="Bulk Edit: four items, new Description value, preview before applying" class="screenshot">
         <p class="caption">Bulk Edit: items selected by Label ID, a new Description value, and the before/after preview.</p>
       </div>
@@ -463,7 +465,7 @@
       <div class="step-num">1</div>
       <div class="step-body">
         <h3 id="export-cols">Export settings</h3>
-        <p>The Export tab has the same layout as Import: <strong>1 · Export settings</strong>, <strong>2 · Select items</strong> and <strong>3 · Columns &amp; results</strong>. The settings box is closed by default and shows a one-line summary; click it to open. Changes are saved immediately.</p>
+        <p>The Export tab has the same layout as Import: <strong>1 · Select items</strong>, <strong>2 · Export settings</strong> and <strong>3 · Columns &amp; results</strong>. <em>Select items</em> is shared with Bulk Edit: when you switch between the two tabs, the selection (mode, IDs or values, Select by and the search query) comes along, so you can export exactly the items you are about to edit. The settings box is closed by default and shows a one-line summary; click it to open. Changes are saved immediately.</p>
         <ul>
           <li><strong>Date format</strong>: how date/time values appear in the table and the output.</li>
           <li><strong>Include header row</strong>: see <a href="#export-header">Header row on or off</a>.</li>
@@ -480,8 +482,8 @@
         <table>
           <thead><tr><th>Mode</th><th>When to use</th></tr></thead>
           <tbody>
-            <tr><td>Label IDs / UUIDs</td><td>You have the items' Label IDs (e.g. <code>aB3dE9</code>), scanned barcode URLs (<code>fcs.re/?aB3dE9</code>), or UUIDs.</td></tr>
-            <tr><td>Gridify search</td><td>You want all items matching a search query, e.g. <code>(isArchived=false,name=*LabelName/i)</code>. Build it with the query builder of the Advanced search in the FLUICS CONNECT web app (see the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>) or click one of the examples below the field. Up to 1,000 matches are loaded.</td></tr>
+            <tr><td>By ID or property</td><td>With <em>Select by</em> on <strong>Label ID / UUID</strong> (the default): you have the items' Label IDs (e.g. <code>aB3dE9</code>), scanned barcode URLs (<code>fcs.re/?aB3dE9</code>), or UUIDs. With <strong>In location</strong>: you want everything in one location (picked or typed by name). With a property: you have a list of property values, e.g. scanned external barcodes, or want every item where a property has a value, is empty or exists. Works as in Bulk Edit (see <a href="#bulk-select">Select items</a> there); dates are read with the <em>Date format</em> setting.</td></tr>
+            <tr><td>Advanced search</td><td>You want all items matching a search query, e.g. <code>(isArchived=false,name=*LabelName/i)</code>. Build it with the query builder of the Advanced search in the FLUICS CONNECT web app (see the <a href="https://fluics.com/manuals/advanced-search/" target="_blank" rel="noopener">Advanced search manual</a>) or click one of the examples below the field. Up to 1,000 matches are loaded.</td></tr>
           </tbody>
         </table>
         <p>For Label IDs / UUIDs, paste one identifier per line:</p>
@@ -501,7 +503,7 @@ fcs.re/?aBcDeF
         <p><strong>Columns</strong> are set up directly in the header row of the table, before or after loading (the values fill in from the loaded items, no reload needed):</p>
         <ul>
           <li>The <strong>dropdown</strong> of a column chooses what it shows: <em>(empty column)</em>, a system field, or a property (Integer and Decimal properties as <em>Name (value)</em> and <em>Name (unit)</em>). <em>+ Other property…</em> takes any property name.</li>
-          <li><strong>⠿</strong>: drag the column onto another column header to move it. <strong>×</strong> removes it. <strong>+ Add column</strong> adds one at the end, <strong>+ All properties</strong> adds every workspace property not shown yet, <strong>↻ Property list</strong> reloads the list of properties.</li>
+          <li><strong>⠿</strong>: drag the column onto another column header to move it. <strong>×</strong> removes it. <strong>+ Add column</strong> adds one at the end, <strong>+ All properties</strong> adds every workspace property not shown yet (for this visit only; the next visit starts with your own columns again). Once every property is shown the button becomes <strong>Remove empty columns</strong>: it removes the columns without a value in any loaded item, and the columns left are remembered for the next visit. <strong>↻ Property list</strong> reloads the list of properties.</li>
           <li><strong>Empty columns</strong> can get a header name (the field under the dropdown) and their cells can be filled in, e.g. a "Checked by" column.</li>
         </ul>
         <p><strong>Every cell can be edited</strong> before copying or downloading: click it and type. Edited cells are highlighted and go into Copy for Excel and Export CSV. Changing what a column shows discards the edits in that column.</p>
@@ -525,10 +527,10 @@ fcs.re/?aBcDeF
           </tbody>
         </table>
 
-        <img src="img/07-export.png" alt="Export: Gridify search and result table" class="screenshot">
-        <p class="caption">Export: items selected with a Gridify search, columns set up in the table header.</p>
+        <img src="img/07-export.png" alt="Export: advanced search and result table" class="screenshot">
+        <p class="caption">Export: items selected with an advanced search, columns set up in the table header.</p>
         <h3 id="export-header">Header row on or off</h3>
-        <p>Box 1 (Export settings) has the option <strong>Include header row</strong>. Leave it ticked to get the column names in the first row. Untick it when you are pasting into a sheet that already has its own headers, for example a customer template where the first rows are fixed. The setting applies to both Copy for Excel and Export CSV, and it travels with the configuration file.</p>
+        <p>Box 2 (Export settings) has the option <strong>Include header row</strong>. Leave it ticked to get the column names in the first row. Untick it when you are pasting into a sheet that already has its own headers, for example a customer template where the first rows are fixed. The setting applies to both Copy for Excel and Export CSV, and it travels with the configuration file.</p>
       </div>
     </div>
 
@@ -575,7 +577,7 @@ fcs.re/?aBcDeF
     <h2 id="tips">Tips &amp; gotchas</h2>
 
     <h3>Tab persistence</h3>
-    <p>The app remembers which tab (Import, Export or Bulk Edit) you had open when you last closed it and restores it on the next visit.</p>
+    <p>The app remembers which tab (Import, Bulk Edit or Export) you had open when you last closed it and restores it on the next visit.</p>
 
     <h3>"+ All properties" appends, does not overwrite</h3>
     <p>In Export, <strong>+ All properties</strong> only adds properties that are not shown yet; your existing columns and their order are preserved, so it is safe to click it more than once.</p>
@@ -587,7 +589,8 @@ fcs.re/?aBcDeF
     <p>The Item Name (the text printed on the label) is limited to letters, numbers, and spaces, max 3 lines of 8 characters each. The app strips special characters automatically and highlights affected cells in orange. Review these before importing.</p>
 
     <h3>Searching by property value</h3>
-    <p>The former "Property value" mode in Export was replaced by Gridify search, which is much faster. To find all items with a given value, use e.g. <code>properties.stringValueByName[Category]=Reagents</code>.</p>
+    <p>Use <strong>By ID or property</strong> in Export or Bulk Edit and choose the property in <em>Select by</em>. It builds the search query for you (in the Gridify syntax of the FLUICS API, the same as <strong>Advanced search</strong>), so it is fast even for long lists. To write such a query yourself, use e.g. <code>properties.stringValueByName[Category]=Reagents</code> in Advanced search.</p>
+    <p>Gridify has no field for a location's name, only its ID: <code>locationId=…</code> finds the items directly in a location, <code>parentLocation=*…</code> also those in its sub-locations. To search by name, use <em>Select by</em> <strong>In location</strong>: it looks up the ID for you.</p>
 
     <h3>Unit values in export</h3>
     <p>The FLUICS API does not include unit information in item data; units are defined at the property definition level. The app caches unit information with the property list (<strong>↻ Property list</strong>). If a unit column is blank, reload the list and choose the <em>(unit)</em> column again.</p>
@@ -599,7 +602,22 @@ fcs.re/?aBcDeF
     <p>API Key ID and Secret are stored only in your browser's <code>localStorage</code>. They are not included in config exports and are never sent to any server other than <code>api.fluics.com</code>. If you clear your browser data you will need to re-enter them.</p>
 
     <!-- ── Changelog ── -->
-    <h2 id="changelog">Changes in v1.4</h2>
+    <h2 id="changelog">Changes in v1.5</h2>
+    <ul>
+      <li>Export and Bulk Edit: <strong>By ID or property</strong> replaces <em>Label IDs / UUIDs</em>. <em>Select by</em> is Label ID / UUID by default, or a property with a list of values (e.g. scanned external barcodes) or a condition (equals, contains, has a value, is empty, is on the item); reports values that were not found or are on several items.</li>
+      <li>The <em>From FLUICS</em> buttons are gone: the property lists load by themselves when a property field is first opened.</li>
+      <li>"Gridify search" is now called <strong>Advanced search</strong>, as in the FLUICS CONNECT web app.</li>
+      <li>Import, Bulk Edit and Export are chosen with three cards below the header (icon, name, short hint), the same layout as PRINT Studio.</li>
+      <li>Bulk Edit: new action <strong>Clear property</strong> empties a property on the selected items (the property stays; the API cannot delete properties yet).</li>
+      <li>Export: columns added with <strong>+ All properties</strong> are no longer remembered; the next visit starts with your own columns again. Once all properties are shown, the button turns into <strong>Remove empty columns</strong>; the columns left after it are remembered.</li>
+      <li>Bulk Edit: actions renamed and reordered to Set property, Clear property, Change name, Move location.</li>
+      <li>Bulk Edit: new action <strong>Change name</strong> sets or clears label lines 1 to 3 on the selected items.</li>
+      <li>Bulk Edit: the new value of a Text property can have several lines.</li>
+      <li>Export and Bulk Edit: <em>Select by</em> <strong>In location</strong> selects every item in a location, picked from the tree or typed by name or path, with or without sub-locations.</li>
+      <li>Export: <em>Select items</em> is now box 1 and <em>Export settings</em> box 2. The selection is shared with Bulk Edit and comes along when you switch tabs.</li>
+    </ul>
+
+    <h2>Changes in v1.4</h2>
     <p>Safety release after an external review.</p>
     <ul>
       <li>Import checks every number and date before creating anything; malformed or out-of-range numbers are rejected, time zones in dates are respected.</li>
@@ -642,7 +660,7 @@ fcs.re/?aBcDeF
 
     <!-- ── Notice ── -->
     <div class="manual-footer">
-      <p>FLUICS CONNECT RestfulAPI Studio v1.4, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
+      <p>FLUICS CONNECT RestfulAPI Studio v1.5, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
       <p>Source code and latest version: <a href="https://github.com/FLUICS-com/api-studio" target="_blank" rel="noopener">github.com/FLUICS-com/api-studio</a> · <a href="https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC" target="_blank" rel="noopener">FLUICS CONNECT API documentation (Swagger)</a></p>
       <p>RestfulAPI Studio is provided as is and used under your own responsibility. Check the preview before importing or applying bulk edits.</p>
       <p>FLUICS GmbH, Fürstenstr. 15, 80333 München, <a href="mailto:support@fluics.com">support@fluics.com</a>.</p>
