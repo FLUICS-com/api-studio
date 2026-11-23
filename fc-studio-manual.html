@@ -231,7 +231,7 @@
 <body>
 
 <header class="site-header">
-  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.5</span></h1>
+  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.6</span></h1>
   <a href="fc-studio.html" class="back-link">
     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -267,7 +267,7 @@
     <a href="#config">Configuration files</a>
     <a href="#datatypes">Data types reference</a>
     <a href="#tips">Tips &amp; gotchas</a>
-    <a href="#changelog">Changes in v1.5</a>
+    <a href="#changelog">Changes in v1.6</a>
   </nav>
 
   <!-- Main content -->
@@ -601,7 +601,13 @@ fcs.re/?aBcDeF
     <p>API Key ID and Secret are stored only in your browser's <code>localStorage</code>. They are not included in config exports and are never sent to any server other than <code>api.fluics.com</code>. If you clear your browser data you will need to re-enter them.</p>
 
     <!-- ── Changelog ── -->
-    <h2 id="changelog">Changes in v1.5</h2>
+    <h2 id="changelog">Changes in v1.6</h2>
+    <ul>
+      <li>Bulk Edit: <strong>+ Add column</strong> in the preview shows more properties or item fields for checking; the columns are remembered and part of the configuration file.</li>
+      <li>API credentials: the <em>Proxy URL</em> field is gone; the app always uses <code>fc-studio-proxy.php</code> in its own folder (a URL saved earlier is ignored).</li>
+    </ul>
+
+    <h2>Changes in v1.5</h2>
     <ul>
       <li>Export and Bulk Edit: <strong>By ID or property</strong> replaces <em>Label IDs / UUIDs</em>. <em>Select by</em> is Label ID / UUID by default, or a property with a list of values (e.g. scanned external barcodes) or a condition (equals, contains, has a value, is empty, is on the item); reports values that were not found or are on several items.</li>
       <li>The <em>From FLUICS</em> buttons are gone: the property lists load by themselves when a property field is first opened.</li>
@@ -613,8 +619,6 @@ fcs.re/?aBcDeF
       <li>Bulk Edit: new action <strong>Change name</strong> sets or clears label lines 1 to 3 on the selected items.</li>
       <li>Bulk Edit: the new value of a Text property can have several lines.</li>
       <li>Export and Bulk Edit: <em>Select by</em> <strong>In location</strong> selects every item in a location, picked from the tree or typed by name or path, with or without sub-locations.</li>
-      <li>API credentials: the <em>Proxy URL</em> field is gone; the app always uses <code>fc-studio-proxy.php</code> in its own folder (a URL saved earlier is ignored).</li>
-      <li>Bulk Edit: <strong>+ Add column</strong> in the preview shows more properties or item fields for checking; the columns are remembered and part of the configuration file.</li>
       <li>Export: <em>Select items</em> is now box 1 and <em>Export settings</em> box 2. The selection is shared with Bulk Edit and comes along when you switch tabs.</li>
     </ul>
 
@@ -661,7 +665,7 @@ fcs.re/?aBcDeF
 
     <!-- ── Notice ── -->
     <div class="manual-footer">
-      <p>FLUICS CONNECT RestfulAPI Studio v1.5, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
+      <p>FLUICS CONNECT RestfulAPI Studio v1.6, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
       <p>Source code and latest version: <a href="https://github.com/FLUICS-com/api-studio" target="_blank" rel="noopener">github.com/FLUICS-com/api-studio</a> · <a href="https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC" target="_blank" rel="noopener">FLUICS CONNECT API documentation (Swagger)</a></p>
       <p>RestfulAPI Studio is provided as is and used under your own responsibility. Check the preview before importing or applying bulk edits.</p>
       <p>FLUICS GmbH, Fürstenstr. 15, 80333 München, <a href="mailto:support@fluics.com">support@fluics.com</a>.</p>
