@@ -313,7 +313,7 @@
     <div class="callout"><strong>Tip:</strong> Export your current configuration (the download icon in the top-right header) before making changes. That way you can restore your column layout quickly if anything breaks.</div>
 
     <h3>Self-hosting (optional)</h3>
-    <p>If you prefer to run the app on your own server or machine, place <code>fc-studio.html</code> and <code>fc-studio-proxy.php</code> in the same folder on any PHP-capable web server.</p>
+    <p>If you prefer to run the app on your own server or machine, place <code>fc-studio.html</code> and <code>fc-studio-proxy.php</code> in the same folder on any PHP-capable web server. Opening the HTML file directly (<code>file://</code>) does not work.</p>
     <p>To run locally with PHP installed, open a terminal in that folder and run:</p>
     <pre><code>php -S localhost:8080</code></pre>
     <p>Then open <code>http://localhost:8080/fc-studio.html</code> in your browser.</p>
@@ -328,7 +328,6 @@
       <tbody>
         <tr><td>Key ID</td><td>Your API key identifier, e.g. <code>user@lab.com-keyAbc</code></td></tr>
         <tr><td>Secret</td><td>Your API key secret</td></tr>
-        <tr><td>Proxy URL</td><td>Leave blank when running from the same folder as <code>fc-studio-proxy.php</code>. Otherwise enter the full URL, e.g. <code>https://yourserver.com/fc-studio-proxy.php?p=</code></td></tr>
       </tbody>
     </table>
     <div class="callout"><strong>Security note:</strong> Credentials are stored only in your browser's local storage and are never included in configuration exports. They are never transmitted to any server other than <code>api.fluics.com</code> (via the proxy).</div>
@@ -451,7 +450,7 @@
       <div class="step-num">3</div>
       <div class="step-body">
         <h3 id="bulk-run">Preview &amp; apply</h3>
-        <p>The Bulk Edit tab has the same three-box layout as Import and Export: <strong>1 · Select items</strong>, <strong>2 · Choose action</strong>, <strong>3 · Preview &amp; apply</strong>. Box 3 lists every item with its current and new value; the notes under its header say which items are skipped and why. Click <strong>Apply to N items</strong> in the toolbar of box 3; the edit starts right away (check the preview first). A progress window logs the result per item. Afterwards the table shows each item's previous value, its value now and a <em>Result</em> column; as soon as you change the settings in box 2 it switches back to the preview. If some items failed, <strong>Retry N failed</strong> sends only those again.</p>
+        <p>The Bulk Edit tab has the same three-box layout as Import and Export: <strong>1 · Select items</strong>, <strong>2 · Choose action</strong>, <strong>3 · Preview &amp; apply</strong>. Box 3 lists every item with its current and new value; with <strong>+ Add column</strong> you can show more properties or item fields (label text, location, owner, registration date) next to it, for example a batch number or a date, to check that you edit the right items. The storage location shows its last two levels (<code>.../Freezer/Rack 2</code>; hover for the full path). These columns are for viewing only, are remembered in your browser and are part of the configuration file; <strong>×</strong> in the header removes one, <strong>✕</strong> at the end of a row takes that item out of the edit; the notes under its header say which items are skipped and why. Click <strong>Apply to N items</strong> in the toolbar of box 3; the edit starts right away (check the preview first). A progress window logs the result per item. Afterwards the table shows each item's previous value, its value now and a <em>Result</em> column; as soon as you change the settings in box 2 it switches back to the preview. If some items failed, <strong>Retry N failed</strong> sends only those again.</p>
         <img src="img/08-bulk-edit.png" alt="Bulk Edit: four items, new Description value, preview before applying" class="screenshot">
         <p class="caption">Bulk Edit: items selected by Label ID, a new Description value, and the before/after preview.</p>
       </div>
@@ -547,8 +546,8 @@ fcs.re/?aBcDeF
         <tr><td>&#8593; (Upload)</td><td>Import a previously saved <code>.json</code> file</td></tr>
       </tbody>
     </table>
-    <p>The configuration file includes import column definitions, delimiter, date format, location assignment, export column definitions, input mode, search property, date format, and the header row setting.</p>
-    <p>Older configuration files still work. Anything saved before the header row option existed simply loads with the header row switched on, exactly as it behaved then.</p>
+    <p>The configuration file includes import column definitions, delimiter, date format, location assignment, export column definitions, input mode, search property, date format, the header row setting, and the Bulk Edit preview columns (<strong>+ Add column</strong>).</p>
+    <p>Older configuration files still work. Anything saved before the header row option existed simply loads with the header row switched on, exactly as it behaved then; a file without Bulk Edit preview columns leaves yours as they are.</p>
     <div class="callout"><strong>Not included:</strong> API credentials (Key ID and Secret). These stay in your browser and must be entered separately on each machine. Share the config file with colleagues so everyone uses the same column layout.</div>
 
     <!-- ── Data types ── -->
@@ -596,7 +595,7 @@ fcs.re/?aBcDeF
     <p>The FLUICS API does not include unit information in item data; units are defined at the property definition level. The app caches unit information with the property list (<strong>↻ Property list</strong>). If a unit column is blank, reload the list and choose the <em>(unit)</em> column again.</p>
 
     <h3>Changing the API key</h3>
-    <p>When you save another Key ID or proxy URL, everything read from the previous workspace is cleared: the property list, location paths and chosen locations, loaded Export and Bulk Edit items. Import rows already created in the previous workspace are listed and removed.</p>
+    <p>When you save another Key ID, everything read from the previous workspace is cleared: the property list, location paths and chosen locations, loaded Export and Bulk Edit items. Import rows already created in the previous workspace are listed and removed.</p>
 
     <h3>Credentials stay local</h3>
     <p>API Key ID and Secret are stored only in your browser's <code>localStorage</code>. They are not included in config exports and are never sent to any server other than <code>api.fluics.com</code>. If you clear your browser data you will need to re-enter them.</p>
@@ -614,6 +613,8 @@ fcs.re/?aBcDeF
       <li>Bulk Edit: new action <strong>Change name</strong> sets or clears label lines 1 to 3 on the selected items.</li>
       <li>Bulk Edit: the new value of a Text property can have several lines.</li>
       <li>Export and Bulk Edit: <em>Select by</em> <strong>In location</strong> selects every item in a location, picked from the tree or typed by name or path, with or without sub-locations.</li>
+      <li>API credentials: the <em>Proxy URL</em> field is gone; the app always uses <code>fc-studio-proxy.php</code> in its own folder (a URL saved earlier is ignored).</li>
+      <li>Bulk Edit: <strong>+ Add column</strong> in the preview shows more properties or item fields for checking; the columns are remembered and part of the configuration file.</li>
       <li>Export: <em>Select items</em> is now box 1 and <em>Export settings</em> box 2. The selection is shared with Bulk Edit and comes along when you switch tabs.</li>
     </ul>
 

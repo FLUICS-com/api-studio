@@ -33,8 +33,8 @@
 
   Deployment
     Drop fc-studio.html + fc-studio-proxy.php on any PHP host (Apache/Nginx).
-    Open directly in a browser via file:// or serve from localhost; the app auto-detects
-    the environment and picks the right proxy URL. No build step. SheetJS is loaded from
+    Local testing without PHP: tools/dev_server.py. Opening the file directly (file://)
+    does not work, API calls need the proxy next to the page. No build step. SheetJS is loaded from
     cdn.sheetjs.com only when an .xlsx file is imported.
 
   API Credentials
@@ -42,7 +42,7 @@
     the FLUICS API (via the proxy). The proxy passes them through as-is and stores nothing.
 
   localStorage keys
-    fcm_creds          {keyId, secret, proxyUrl?}
+    fcm_creds          {keyId, secret}
     fcm_import         {columns (from the mapping), delimiter, dateFormat, locationId, locationName,
                         targets (properties created here), mapping / mappingPos (remembered choices), units}
     fcm_ws_props       {at, props: [{name, type, unit}]}  workspace property list for the mapping
@@ -50,7 +50,7 @@
     fcm_export         {columns: [{id, name, isPlaceholder?, isSystem?, systemKey?, _unit?, auto?}], inputMode: 'lid'|'search', propSel?,
                         filter?, dateFormat, includeHeader}
     fcm_loc_ids        '1' when the location picker shows IDs
-    fcm_bulk           {inputMode: 'ids'|'search', filter?, action?, prop?, propSel?: {prop, cond, active, loc: {text, id, sub}}}
+    fcm_bulk           {inputMode: 'ids'|'search', filter?, action?, prop?, propSel?: {prop, cond, active, loc: {text, id, sub}}, viewCols?: ['sys:owner', 'prop:Name', …]}
                        propSel.prop is 'Label ID / UUID' or a property name
 -->
 <!DOCTYPE html>
@@ -631,6 +631,9 @@ input.main-input-line:focus { border-color: var(--blue); }
 .td-new.unchanged { color: #aaa; font-weight: 400; }
 .td-new.invalid { color: var(--red); font-weight: 400; font-style: italic; }
 #bulk-table td.td-old, #bulk-table td.td-new, #bulk-table td.td-val { white-space: pre-line; }
+.bulk-view-add { max-width: 180px; }
+.bulk-view-x { border: none; background: none; padding: 0 2px; margin-left: 4px; color: #bbb; font-size: 0.9rem; line-height: 1; cursor: pointer; }
+.bulk-view-x:hover { color: var(--red); }
 .settings-field textarea.bulk-value-text { height: 38px; min-height: 38px; max-height: 220px; padding: 9px 12px; line-height: 1.25; font-family: inherit; resize: none; overflow-y: auto; display: block; }
 .clr-wrap.clr-ta > .combo-caret { top: 9px; transform: none; }
 .td-status { font-size: 0.75rem; white-space: nowrap; }
@@ -1162,6 +1165,7 @@ select {
     <div class="table-header" style="flex-wrap:wrap">
       <div class="left">3 · Preview &amp; apply <span class="count-badge" id="bulk-count-badge">0</span></div>
       <div class="table-actions">
+        <select class="btn btn-neutral bulk-view-add" id="bulk-view-add" onchange="bulkAddViewCol(this.value)" aria-label="Add a column to the preview" title="Show another property in the preview, for checking only"></select>
         <button class="btn btn-fluics" id="bulk-apply-btn" onclick="bulkApply()" type="button" disabled>Apply</button>
         <button class="btn btn-danger" onclick="bulkClear()" type="button">Clear</button>
       </div>
@@ -1212,11 +1216,6 @@ select {
             <label>Secret</label>
             <div class="field-desc">API key secret</div>
             <input type="password" id="api-secret" autocomplete="new-password" placeholder="••••••••••••••••">
-          </div>
-          <div class="settings-field full">
-            <label>Proxy URL <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-            <div class="field-desc">Leave blank to use fc-studio-proxy.php in the same folder</div>
-            <input type="text" id="api-proxy" autocomplete="off" spellcheck="false" placeholder="fc-studio-proxy.php?p=">
           </div>
         </div>
       </div>
@@ -1340,6 +1339,7 @@ const UI_HANDLERS = {
   exportDeleteRow: i => exportDeleteRow(i),
   bulkSetAction: key => bulkSetAction(key),
   bulkDeleteRow: i => bulkDeleteRow(i),
+  bulkRemoveViewCol: k => bulkRemoveViewCol(k),
   bulkOpenItem: (ev, i) => bulkOpenItem(ev, i),
   openLocPicker: target => openLocPicker(target === 'export-ps' || target === 'bulk-ps' ? target : 'bulk'),
 };
@@ -1915,11 +1915,12 @@ function saveExportCfg(c) { localStorage.setItem('fcm_export', JSON.stringify(c)
 
 // ── API layer ──────────────────────────────────────────────────────────────────
 
+// The API relay next to this file (fc-studio-proxy.php; tools/dev_server.py answers
+// the same path). A page opened as file:// has no server, so it cannot connect.
+const PROXY_BASE = 'fc-studio-proxy.php?p=';
 function proxyBase() {
-  const saved = loadCreds().proxyUrl;
-  if (saved) return saved;
-  const h = location.hostname;
-  return (h === 'localhost' || h === '127.0.0.1') ? '/fc-api' : 'fc-studio-proxy.php?p=';
+  if (location.protocol === 'file:') throw new Error('Opened as a file, so there is no connection to FLUICS. Open the app from a web server, e.g. https://link.fluics.com/apistudio');
+  return PROXY_BASE;
 }
 
 async function fcLogin() {
@@ -2204,7 +2205,6 @@ function openApiSettings() {
   const c = loadCreds();
   document.getElementById('api-keyid').value  = c.keyId  || '';
   document.getElementById('api-secret').value = c.secret || '';
-  document.getElementById('api-proxy').value  = c.proxyUrl || '';
   document.getElementById('modal-api').classList.add('active');
 }
 function closeApiSettings() { document.getElementById('modal-api').classList.remove('active'); }
@@ -2213,16 +2213,15 @@ function saveApiSettings() {
   const next = {
     keyId:    document.getElementById('api-keyid').value.trim(),
     secret:   document.getElementById('api-secret').value.trim(),
-    proxyUrl: document.getElementById('api-proxy').value.trim() || undefined,
   };
   saveCreds(next);
-  if ((before.keyId || '') !== next.keyId || (before.proxyUrl || '') !== (next.proxyUrl || '')) resetWorkspaceData();
+  if ((before.keyId || '') !== next.keyId) resetWorkspaceData();
   closeApiSettings();
   showWorkspaceName();
 }
 
 /**
- * Another key or proxy may mean another workspace: drop everything that was
+ * Another key may mean another workspace: drop everything that was
  * read from the old one (property list, location paths and chosen locations,
  * loaded export and bulk items, list values), so nothing of it is shown or
  * written into the new workspace. Import rows that were already created in
@@ -4116,13 +4115,14 @@ function bulkNormalize(obj, input) {
   const props = obj.properties || obj.Properties || [];
   bulkLearnProps(props);
   const line = n => obj['labelLine' + n] ?? obj['LabelLine' + n] ?? cl['labelLine' + n] ?? cl['LabelLine' + n] ?? '';
+  const sys = extractSysFields(obj, input || id, 'YYYY-MM-DD HH:MM');
   return {
-    input: input || lid || id, ok: true, id, lid,
+    input: input || lid || id, ok: true, id, lid, sys: { owner: sys.owner, regDate: sys.regDate },
     name: objDisplayName(obj),
     lines: [line(1), line(2), line(3)].map(s => s || ''),
     objectType: obj.objectType || obj.ObjectType || '',
     locationId,
-    locationName: extractSysFields(obj, input || id).locationName || (locationId && locPaths.get(locationId)) || '',
+    locationName: sys.locationName || (locationId && locPaths.get(locationId)) || '',
     props, status: null,
   };
 }
@@ -4185,6 +4185,10 @@ async function bulkLoadItems() {
     const seen = new Set();
     rows = rows.filter(r => !r.ok || (!seen.has(r.id) && seen.add(r.id)));
 
+    if (bulkViewCols().includes('sys:locationName')) {
+      status.textContent = 'Loading locations…';
+      await loadLocPaths(token);
+    }
     // Resolve a few unknown location names so the Move preview is readable.
     const unknown = [...new Set(rows.filter(r => r.ok && r.locationId && !r.locationName).map(r => r.locationId))]
       .filter(id => !locPaths.has(id)).slice(0, 30);
@@ -4511,6 +4515,76 @@ function bulkValidate() {
 
 // ── Preview table ──────────────────────────────────────────────────────────────
 
+// Extra read-only columns, chosen by the user and remembered (fcm_bulk.viewCols):
+// 'sys:<key>' for item fields, 'prop:<name>' for properties. They only help to
+// check the selection and never change what is sent.
+const BULK_VIEW_SYS = [['itemName', 'Label text'], ['locationName', 'Storage Location'], ['owner', 'Item Owner'], ['regDate', 'Registration Date']];
+const BULK_VIEW_MAX = 20;
+
+function sanitizeViewCols(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : []).filter(k => {
+    if (typeof k !== 'string' || seen.has(k.toLowerCase())) return false;
+    const ok = k.startsWith('prop:') ? k.length > 5 : BULK_VIEW_SYS.some(([key]) => k === 'sys:' + key);
+    return ok && seen.add(k.toLowerCase());
+  }).slice(0, BULK_VIEW_MAX);
+}
+function bulkViewCols() { return sanitizeViewCols(loadBulkCfg().viewCols); }
+function bulkViewLabel(k) {
+  return k.startsWith('prop:') ? k.slice(5) : BULK_VIEW_SYS.find(([key]) => k === 'sys:' + key)[1];
+}
+
+function bulkAddViewCol(k) {
+  if (k) saveBulkCfg({ viewCols: sanitizeViewCols([...bulkViewCols(), k]) });
+  bulkRenderTable();
+  // The upper level needs the location tree, which Load items skips without this column.
+  if (k === 'sys:locationName' && bulkItems.some(r => r.ok && r.locationId)) {
+    fcLogin().then(loadLocPaths).then(bulkRenderTable).catch(() => {});
+  }
+}
+
+// Full path to its last two levels: "A / B / C" → ".../B/C".
+function bulkShortPath(path) {
+  const parts = path.split(' / ');
+  return (parts.length > 2 ? '.../' : '') + parts.slice(-2).join('/');
+}
+function bulkViewCell(r, k) {
+  const v = bulkViewValue(r, k);
+  return k === 'sys:locationName'
+    ? `<td class="td-val" title="${escAttr(v)}">${escHtml(bulkShortPath(v))}</td>`
+    : `<td class="td-val">${escHtml(v || '—')}</td>`;
+}
+function bulkRemoveViewCol(k) {
+  saveBulkCfg({ viewCols: bulkViewCols().filter(x => x !== k) });
+  bulkRenderTable();
+}
+
+function bulkRenderViewPicker(cols) {
+  const used = new Set(cols.map(k => k.toLowerCase()));
+  const group = (label, keys) => {
+    const free = keys.filter(k => !used.has(k.toLowerCase()));
+    return free.length ? `<optgroup label="${escAttr(label)}">` +
+      free.map(k => `<option value="${escAttr(k)}">${escHtml(bulkViewLabel(k))}</option>`).join('') + '</optgroup>' : '';
+  };
+  const sel = document.getElementById('bulk-view-add');
+  sel.innerHTML = '<option value="">+ Add column</option>' +
+    group('Item fields', BULK_VIEW_SYS.map(([key]) => 'sys:' + key)) +
+    group('Properties', bulkPropOptions().map(o => 'prop:' + o.value));
+  sel.disabled = cols.length >= BULK_VIEW_MAX;
+}
+
+// Dates are shown with their time (UTC, as in Export) unless it is midnight.
+function bulkViewDate(v) { return v.replace(/^(\d{4}-\d\d-\d\d) 00:00$/, '$1'); }
+function bulkViewValue(r, k) {
+  if (k === 'sys:locationName') return bulkLocText(r);
+  if (k === 'sys:itemName')     return r.lines.filter(Boolean).join(' ');
+  if (k.startsWith('sys:'))     return bulkViewDate(r.sys[k.slice(4)] || '');
+  const p = bulkFindProp(r, k.slice(5));
+  if (!p) return '';
+  const date = p.dateTimeValue ?? p.DateTimeValue;
+  return date && (p.stringValue ?? p.StringValue) == null ? bulkViewDate(formatDate(date, 'YYYY-MM-DD HH:MM')) : bulkFmtProp(p);
+}
+
 function bulkRenderTable() {
   const loaded = bulkItems.filter(r => r.ok).length;
   document.getElementById('bulk-count-badge').textContent = loaded;
@@ -4529,6 +4603,8 @@ function bulkRenderTable() {
     ? 'Showing the result of the last run. Change the settings above to preview the next edit.'
     : v.msg;
 
+  const viewCols = bulkViewCols();
+  bulkRenderViewPicker(viewCols);
 
   if (!bulkItems.length) {
     document.getElementById('bulk-empty-state').style.display = 'block';
@@ -4550,10 +4626,11 @@ function bulkRenderTable() {
 
   document.getElementById('bulk-table-head').innerHTML =
     '<th>#</th><th>ID</th><th>Name</th><th>Type</th>' +
+    viewCols.map(k => `<th>${escHtml(bulkViewLabel(k))}<button class="bulk-view-x" ${uiOn('click', 'bulkRemoveViewCol', k)} type="button" title="Remove this column">×</button></th>`).join('') +
     `<th>${escHtml(h1)}</th>` + (h2 ? `<th class="th-label">${escHtml(h2)}</th>` : '') +
     (hasStatus ? '<th>Result</th>' : '') + '<th></th>';
 
-  const span = 3 + (h2 ? 2 : 1) + (hasStatus ? 1 : 0);
+  const span = 3 + viewCols.length + (h2 ? 2 : 1) + (hasStatus ? 1 : 0);
   document.getElementById('bulk-table-body').innerHTML = bulkItems.map((r, i) => {
     const del = `<td><button class="btn-del" ${uiOn('click', 'bulkDeleteRow', i)} type="button" title="Remove from selection">✕</button></td>`;
     if (!r.ok) {
@@ -4582,7 +4659,8 @@ function bulkRenderTable() {
       ? `<td class="td-id"><a class="id-link" href="https://fcs.re/?${encodeURIComponent(r.lid)}" target="_blank" rel="noopener" title="Open in FLUICS CONNECT">${escHtml(r.lid)}</a></td>`
       : `<td class="td-id"><a class="id-link" href="#" ${uiOn('click', 'bulkOpenItem', {$:'event'}, i)} title="Open in FLUICS CONNECT (${escAttr(r.id)})">${escHtml(String(r.id).slice(0, 8))}…</a></td>`;
     return `<tr><td class="td-num">${i + 1}</td>${idCell}<td class="td-val">${escHtml(r.name)}</td>` +
-      `<td class="td-val" style="color:#aaa">${escHtml(r.objectType)}</td>${cells}${status}${del}</tr>`;
+      `<td class="td-val" style="color:#aaa">${escHtml(r.objectType)}</td>` +
+      viewCols.map(k => bulkViewCell(r, k)).join('') + `${cells}${status}${del}</tr>`;
   }).join('');
 }
 
@@ -4953,7 +5031,7 @@ function sanitizePropSel(p) {
 
 function sanitizeBulkCfg(c) {
   return { inputMode: BULK_INPUT_MODES.includes(c.inputMode) ? c.inputMode : 'ids', filter: cfgStr(c.filter), action: cfgStr(c.action) || 'set', prop: cfgStr(c.prop),
-    propSel: sanitizePropSel(c.propSel) };
+    propSel: sanitizePropSel(c.propSel), viewCols: sanitizeViewCols(c.viewCols) };
 }
 
 function configImport(input) {
@@ -4983,7 +5061,9 @@ function configImport(input) {
       imported++;
     }
     if (cfg.bulk && typeof cfg.bulk === 'object') {
-      localStorage.setItem('fcm_bulk', JSON.stringify(sanitizeBulkCfg(cfg.bulk)));
+      // files from before the preview columns leave the current ones as they are
+      const viewCols = Array.isArray(cfg.bulk.viewCols) ? cfg.bulk.viewCols : bulkViewCols();
+      localStorage.setItem('fcm_bulk', JSON.stringify(sanitizeBulkCfg({ ...cfg.bulk, viewCols })));
       bulkInitFromCfg();
       imported++;
     }

@@ -1,7 +1,7 @@
 """Local dev server for RestfulAPI Studio, for testing without PHP.
 
-Serves a folder and relays /fc-api/v2/... to the FLUICS public API (what
-fc-studio-proxy.php does on PHP hosts; on localhost the app calls /fc-api).
+Serves a folder and relays fc-studio-proxy.php?p=/v2/... to the FLUICS public
+API, as the PHP proxy does on PHP hosts.
 POST /__shot?name=x.png saves a data-URL image into SHOTS (used to capture
 the manual screenshots with html-to-image from the page).
 
@@ -10,11 +10,14 @@ Then open http://localhost:8766/fc-studio.html
 """
 import http.server, os, sys, urllib.request, urllib.error
 ROOT = sys.argv[1]; PORT = int(sys.argv[2]); API = "https://api.fluics.com/api/public"; SHOTS = sys.argv[3] if len(sys.argv) > 3 else "img"
+PROXY = "/fc-studio-proxy.php?p="
 class H(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k): super().__init__(*a, directory=ROOT, **k)
     def relay(self):
-        if not self.path.startswith("/fc-api/"): return self.send_error(405)
-        rest = self.path[len("/fc-api/"):]
+        if not self.path.startswith(PROXY): return self.send_error(405)
+        # p=/v2/path[?inline query][&more params] -> v2/path?all params
+        path, _, more = self.path[len(PROXY):].lstrip("/").partition("&")
+        rest = path + (("&" if "?" in path else "?") + more if more else "")
         if not rest.startswith("v2/") or ".." in rest: return self.send_error(400)
         n = int(self.headers.get("Content-Length") or 0); body = self.rfile.read(n) if n else None
         hdr = {k: v for k, v in self.headers.items() if k.lower() in ("authorization", "content-type")}
@@ -24,7 +27,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         self.send_response(code); self.send_header("Content-Type", ct or "application/json")
         self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
     def do_GET(self):
-        return self.relay() if self.path.startswith("/fc-api/") else super().do_GET()
+        return self.relay() if self.path.startswith(PROXY) else super().do_GET()
     def do_OPTIONS(self):
         self.send_response(204); self.cors(); self.end_headers()
     def cors(self):

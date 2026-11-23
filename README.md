@@ -17,7 +17,7 @@ The latest version is hosted at https://link.fluics.com/apistudio. You need a FL
 1. Put `fc-studio.html`, `fc-studio-manual.html`, `fc-studio-proxy.php` and the `img` folder (manual screenshots) in one folder on any PHP web server (Apache, nginx with PHP-FPM, or locally `php -S localhost:8080`).
 2. Open `fc-studio.html` and enter your API credentials (gear icon, top right).
 
-The proxy is needed because browsers block direct cross-origin calls to the FLUICS API. It only forwards paths of the public API v2 to `api.fluics.com`, passes the Authorization header through and stores nothing. Static hosting without PHP (for example GitHub Pages) does not work, unless you enter the URL of another proxy in the credentials dialog.
+The proxy is needed because browsers block direct cross-origin calls to the FLUICS API. It only forwards paths of the public API v2 to `api.fluics.com`, passes the Authorization header through and stores nothing. Static hosting without PHP (for example GitHub Pages) and opening the HTML file directly (`file://`) do not work.
 
 API credentials are stored only in your browser (localStorage) and are never part of the configuration exports.
 
