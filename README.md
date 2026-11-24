@@ -4,6 +4,7 @@ Move data between spreadsheets and your FLUICS CONNECT inventory in bulk, throug
 
 - **Import**: paste rows from Excel or upload .xlsx/.csv, map the columns to workspace properties, preview and register new items.
 - **Export**: pick items by Label ID, UUID or Gridify search, choose the fields and copy the table to Excel or save it as CSV.
+- **Locations**: create a tree of locations and sub-locations from an indented list, paths or Excel columns.
 - **Bulk Edit**: set a property value or move items to another location, with a before/after preview.
 
 The app is one HTML file plus a small PHP proxy. No build step, no database.

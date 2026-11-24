@@ -231,7 +231,7 @@
 <body>
 
 <header class="site-header">
-  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.6</span></h1>
+  <h1>FLUICS CONNECT RestfulAPI Studio <span>v1.7</span></h1>
   <a href="fc-studio.html" class="back-link">
     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -264,10 +264,11 @@
     <a href="#export-cols" class="sub">Export settings</a>
     <a href="#export-fetch" class="sub">Columns, results &amp; export</a>
     <a href="#export-header" class="sub">Header row on/off</a>
+    <a href="#locations">Locations module</a>
     <a href="#config">Configuration files</a>
     <a href="#datatypes">Data types reference</a>
     <a href="#tips">Tips &amp; gotchas</a>
-    <a href="#changelog">Changes in v1.6</a>
+    <a href="#changelog">Changes in v1.7</a>
   </nav>
 
   <!-- Main content -->
@@ -282,7 +283,7 @@
 
     <img src="img/01-overview.png" alt="Import tab with pasted rows mapped to workspace properties" class="screenshot">
     <p class="caption">The Import tab: pasted rows, each column mapped to a workspace property.</p>
-    <p>Switch between Import, Bulk Edit and Export with the three cards below the header; the highlighted card is the open module.</p>
+    <p>Switch between Import, Bulk Edit, Export and Locations with the four cards below the header; the highlighted card is the open module.</p>
 
     <table>
       <thead><tr><th>Module</th><th>What it does</th></tr></thead>
@@ -349,7 +350,7 @@
           <tbody>
             <tr><td>Column separator for pasted values</td><td>For pasted text: Tab (default from Excel/Sheets), Comma, Semicolon. CSV files are detected automatically.</td></tr>
             <tr><td>Date format</td><td>How date text is read: ISO 8601 (<code>YYYY-MM-DD</code>), with time, or EU/US Excel formats. ISO dates and real Excel date cells always work.</td></tr>
-            <tr><td>Location (optional)</td><td>All imported items are placed here. Click <strong>Browse</strong> to pick it from the location tree, or paste its ID.</td></tr>
+            <tr><td>Location (optional)</td><td>All imported items are placed here. Click <strong>Browse</strong> to pick it from the location tree, or type its name, path or ID. The field shows the name; the ID is below it in grey.</td></tr>
           </tbody>
         </table>
         <p>Which columns become which properties is decided in box 2 (mapping), not here.</p>
@@ -388,12 +389,12 @@
         <p>The preview table shows every item that will be created.</p>
         <ul>
           <li><strong>Click any cell</strong> to edit it inline.</li>
-          <li><strong>Item Name</strong> (the 3-line label text) is auto-derived from the Full name; only letters, numbers, and spaces allowed. Cells highlighted in orange contain characters that were stripped.</li>
+          <li><strong>Item Name</strong> (the 3-line label text) is auto-derived from the Full name; letters, numbers, spaces and <code>§ * &amp; / ( ) % " + - # _</code> are allowed. Cells highlighted in orange contain characters that were stripped.</li>
           <li><strong>Apply to all items:</strong> hover over any non-empty editable cell to reveal a small link below it; click it to copy that value to every row in the same column. Useful for batch-setting a unit, category, or lot number.</li>
           <li><strong>Delete a row</strong> with the ✕ button on the left.</li>
           <li><strong>Clear All</strong> removes all rows from the preview.</li>
         </ul>
-        <p>Hovering over a filled cell reveals the "Apply to all items" link below it. Cells highlighted in orange had special characters stripped from the Item Name.</p>
+        <p>Hovering over a filled cell reveals the "Apply to all items" link below it. Cells highlighted in orange had characters stripped from the Item Name.</p>
         <img src="img/06-import-preview.png" alt="Import preview with derived item names" class="screenshot">
         <p class="caption">Box 3: the preview. The Item Name is derived from the Full name; orange cells had characters removed.</p>
       </div>
@@ -438,7 +439,7 @@
           <tbody>
             <tr><td>Set property</td><td>Pick a property (the list of workspace properties loads by itself the first time you open it; you can also type a new name) and enter the new value. Items that don&rsquo;t have the property yet get it. The data type is taken from the existing property; for a new one, choose it. Text values can span several lines (Enter starts a new line, the box grows with the text). Numbers accept a unit, dates use a date picker, multi-value lists take <code>value;value</code> and replace the old list. Suggestions show the 20 most common values among the loaded items.</td></tr>
             <tr><td>Clear property</td><td>Pick a property; its value (and unit) is emptied on every loaded item that has it. Items without the property are skipped. The property itself stays on the item, because the FLUICS public API cannot delete a property yet.</td></tr>
-            <tr><td>Change name</td><td>Change the name printed on the label: enter new text for label line 1, 2 and/or 3 (up to 8 letters, digits or spaces each). Empty fields keep the current line; <em>Clear line</em> under a field empties that line (<em>Undo</em> goes back to keep). Line 4 cannot be changed through the API. Items in a series take lines 1 and 2 from the series when both match the series values. Changes are sent in batches of 100 like moves. The printed labels do not change by themselves: reprint them afterwards.</td></tr>
+            <tr><td>Change name</td><td>Change the name printed on the label: enter new text for label line 1, 2 and/or 3 (up to 8 characters each: letters, digits, spaces and <code>§ * &amp; / ( ) % " + - # _</code>). Empty fields keep the current line; <em>Clear line</em> under a field empties that line (<em>Undo</em> goes back to keep). Line 4 cannot be changed through the API. Items in a series take lines 1 and 2 from the series when both match the series values. Changes are sent in batches of 100 like moves. The printed labels do not change by themselves: reprint them afterwards.</td></tr>
             <tr><td>Move location</td><td>Click <strong>Browse</strong> and pick the target location from the location tree (type to filter; parent locations of matches stay visible, IDs appear with <em>Show IDs</em>), or <em>Workspace root</em>. Items are moved in batches of 100; if one item in a batch cannot be moved, that batch is left unchanged.</td></tr>
           </tbody>
         </table>
@@ -533,6 +534,33 @@ fcs.re/?aBcDeF
       </div>
     </div>
 
+    <!-- ── Locations ── -->
+    <h2 id="locations">Locations module</h2>
+    <p>Creates locations with any number of sub-levels from a list, for example a room with freezers and their shelves.</p>
+    <img src="img/09-locations.png" alt="Locations module: parent location, Builder with a freezer and a fridge, preview of the tree" class="screenshot">
+    <p class="caption">Locations: the freezer and fridge examples in the Builder and the preview with the three label lines.</p>
+    <p><strong>1 · Parent location:</strong> pick where the new locations go, or leave it empty for the workspace root.</p>
+    <p><strong>2 · Location list</strong> has two views of the same list, so you can switch at any time.</p>
+    <p><strong>Builder:</strong> each row is a location or a series of locations. Enter a name, choose the numbering (<code>1, 2, 3</code>, <code>01, 02, 03</code>, <code>A, B, C</code>, <code>a, b, c</code> or none), how many, where to start, whether a <code>#</code> stands before the number, and whether the number is on the same or its own label line. <em>+ Sub</em> adds a level below, the arrows move a row with its sub-locations one level up or down, &#10697; duplicates it and continues the numbering, and Enter adds the next row. New rows count with # and two digits (<code>#01</code>). <em>+ Add example</em> adds a ready-made unit with its sub-locations (freezer, fridge, safety cabinet, cabinet, nitrogen tank) to adapt; <em>Numbering for all rows</em> and <em># for all rows</em> change every numbered row.</p>
+    <p><strong>Text or Excel:</strong> one location per line. Use indentation (spaces or tabs), paths with spaces around the slash (<code>Room 1 / Freezer 1</code>; <code>A/B</code> is a name), or paste Excel columns with one level per column. <code>1..5</code> counts (also <code>01..12</code> and <code>A..D</code>; next to letters or digits in braces: <code>Rack{A..D}</code>); everything below such a line is created in each of its locations:</p>
+    <pre><code>Room 1
+  Freezer 1..2
+    Shelf 1..5
+  Freezer 3
+    Shelf 1..6
+  Safety cabinet 1..2
+    Shelf 1..4</code></pre>
+    <img src="img/10-locations-text.png" alt="The same location list in the text view" class="screenshot">
+    <p class="caption">The freezer and fridge list in the text view.</p>
+    <p><strong>3 · Preview &amp; create:</strong> <strong>Preview</strong> compares the list with the workspace and shows every location with its printed label. Locations that exist under the same parent are kept and reused. <strong>Create</strong> adds only the missing ones, parents first, up to 1000 per list.</p>
+    <ul>
+      <li>Line breaks on the label: in the text, <code>|</code> starts the next line and <code>||</code> goes to line 3, so <code>Freezer #1..3 || -20C</code> prints <em>Freezer</em>, <em>#1</em> and <em>-20C</em> on three lines. In the Builder, type an <em>Extra text</em> and choose <em>same line</em>, <em>next line</em> or <em>line 3</em>; the number goes on its own line with <em>Number: own line</em>, and a <code>|</code> also works in the name: <code>Freezer | -20C</code> with <em>Number: own line</em> prints <em>Freezer</em>, <em>-20C</em>, <em>#1</em>. The boxes show the three lines. Without a break, words are distributed as in Import.</li>
+      <li>The label holds 3 lines of 8 characters (letters, digits, spaces and <code>§ * &amp; / ( ) % " + - # _</code>). A name that does not fit is kept complete in the property <em>Full name</em>.</li>
+      <li>If some locations fail, click <strong>Create</strong> again: the workspace is read first, so locations it finds are not created twice. After a lost connection, wait a minute, so the search can list a location that was just created.</li>
+      <li>The API key's user needs the right to create locations. The API cannot archive locations, so check the preview before creating.</li>
+      <li>The list and parent are remembered in your browser; they are not part of the configuration file.</li>
+    </ul>
+
     <!-- ── Config ── -->
     <h2 id="config">Configuration management</h2>
     <img src="img/02-header.png" alt="Header: workspace name, Manual, Download config, Upload config, API credentials" class="screenshot" width="229">
@@ -576,7 +604,7 @@ fcs.re/?aBcDeF
     <h2 id="tips">Tips &amp; gotchas</h2>
 
     <h3>Tab persistence</h3>
-    <p>The app remembers which tab (Import, Bulk Edit or Export) you had open when you last closed it and restores it on the next visit.</p>
+    <p>The app remembers which tab (Import, Bulk Edit, Export or Locations) you had open when you last closed it and restores it on the next visit.</p>
 
     <h3>"+ All properties" appends, does not overwrite</h3>
     <p>In Export, <strong>+ All properties</strong> only adds properties that are not shown yet; your existing columns and their order are preserved, so it is safe to click it more than once.</p>
@@ -585,7 +613,7 @@ fcs.re/?aBcDeF
     <p>In the Import preview, hover over any filled editable cell to reveal a small "Apply &hellip; to all items" link. Click it to copy that cell's value to every row in the same column. Useful for setting a common unit, category, or lot number across many rows.</p>
 
     <h3>Special characters in Full name</h3>
-    <p>The Item Name (the text printed on the label) is limited to letters, numbers, and spaces, max 3 lines of 8 characters each. The app strips special characters automatically and highlights affected cells in orange. Review these before importing.</p>
+    <p>The Item Name (the text printed on the label) is limited to letters, numbers, spaces and <code>§ * &amp; / ( ) % " + - # _</code>, max 3 lines of 8 characters each. The app strips all other characters automatically and highlights affected cells in orange. Review these before importing.</p>
 
     <h3>Searching by property value</h3>
     <p>Use <strong>By ID or property</strong> in Export or Bulk Edit and choose the property in <em>Select by</em>. It builds the search query for you (in the Gridify syntax of the FLUICS API, the same as <strong>Advanced search</strong>), so it is fast even for long lists. To write such a query yourself, use e.g. <code>properties.stringValueByName[Category]=Reagents</code> in Advanced search.</p>
@@ -601,7 +629,15 @@ fcs.re/?aBcDeF
     <p>API Key ID and Secret are stored only in your browser's <code>localStorage</code>. They are not included in config exports and are never sent to any server other than <code>api.fluics.com</code>. If you clear your browser data you will need to re-enter them.</p>
 
     <!-- ── Changelog ── -->
-    <h2 id="changelog">Changes in v1.6</h2>
+    <h2 id="changelog">Changes in v1.7</h2>
+    <ul>
+      <li>New module <strong>Locations</strong>: creates a tree of locations with sub-locations with a builder (names, numbers or letters, examples), or from an indented list, paths or Excel columns.</li>
+      <li>Label lines in Import, Bulk Edit and Locations can contain <code>§ * &amp; / ( ) % " + - # _</code>.</li>
+      <li>Location fields show the name of the location, with its ID in grey below; a name or path can be typed.</li>
+      <li>Import waits and continues when the API limits the number of requests while items are created.</li>
+    </ul>
+
+    <h2>Changes in v1.6</h2>
     <ul>
       <li>Bulk Edit: <strong>+ Add column</strong> in the preview shows more properties or item fields for checking; the columns are remembered and part of the configuration file.</li>
       <li>API credentials: the <em>Proxy URL</em> field is gone; the app always uses <code>fc-studio-proxy.php</code> in its own folder (a URL saved earlier is ignored).</li>
@@ -665,7 +701,7 @@ fcs.re/?aBcDeF
 
     <!-- ── Notice ── -->
     <div class="manual-footer">
-      <p>FLUICS CONNECT RestfulAPI Studio v1.6, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
+      <p>FLUICS CONNECT RestfulAPI Studio v1.7, open source under the <a href="https://github.com/FLUICS-com/api-studio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
       <p>Source code and latest version: <a href="https://github.com/FLUICS-com/api-studio" target="_blank" rel="noopener">github.com/FLUICS-com/api-studio</a> · <a href="https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC" target="_blank" rel="noopener">FLUICS CONNECT API documentation (Swagger)</a></p>
       <p>RestfulAPI Studio is provided as is and used under your own responsibility. Check the preview before importing or applying bulk edits.</p>
       <p>FLUICS GmbH, Fürstenstr. 15, 80333 München, <a href="mailto:support@fluics.com">support@fluics.com</a>.</p>

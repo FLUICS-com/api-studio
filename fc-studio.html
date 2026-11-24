@@ -1,10 +1,10 @@
 <!--
-  FLUICS CONNECT RestfulAPI Studio v1.6
+  FLUICS CONNECT RestfulAPI Studio v1.7
   =====================================
   Copyright (c) 2026 FLUICS GmbH. Released under the MIT License, see LICENSE or
   https://github.com/FLUICS-com/api-studio/blob/main/LICENSE. SheetJS 0.20.3 (Apache-2.0) is loaded from cdn.sheetjs.com.
 
-  Single-file HTML tool with three workflows against the FLUICS CONNECT public API.
+  Single-file HTML tool with four workflows against the FLUICS CONNECT public API.
   Each tab has the same three boxes: 1 settings / selection, 2 input, 3 table.
 
   Module A: Import (item registration)
@@ -31,6 +31,11 @@
     before/after values and a results view.
     Remove / rename property and archive wait for public API endpoints.
 
+  Module D: Locations
+    1 Parent location, 2 Location list (Builder rows, or text: indented, paths with /, or Excel columns;
+    1..5 counts), 3 Preview & create: tree of new and existing locations. Create reads
+    the workspace tree again, creates only what is missing, parents first.
+
   Deployment
     Drop fc-studio.html + fc-studio-proxy.php on any PHP host (Apache/Nginx).
     Local testing without PHP: tools/dev_server.py. Opening the file directly (file://)
@@ -47,6 +52,7 @@
                         targets (properties created here), mapping / mappingPos (remembered choices), units}
     fcm_ws_props       {at, props: [{name, type, unit}]}  workspace property list for the mapping
     fcm_import_items   {items, nextId}
+    fcm_loctree        {mode: 'builder'|'text', text, locationId, locationName}
     fcm_export         {columns: [{id, name, isPlaceholder?, isSystem?, systemKey?, _unit?, auto?}], inputMode: 'lid'|'search', propSel?,
                         filter?, dateFormat, includeHeader}
     fcm_loc_ids        '1' when the location picker shows IDs
@@ -121,7 +127,7 @@ h1 { font-size: 1.2rem; font-weight: 600; }
 /* ── Module cards (same pattern as PRINT Studio's print modes) ─────────────────── */
 .mode-bar {
   width: 100%; max-width: 90vw;
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
   margin: 10px 0 14px;
 }
 .mode-card {
@@ -138,7 +144,7 @@ h1 { font-size: 1.2rem; font-weight: 600; }
 .mode-card .mode-hint  { display: block; font-size: 0.72rem; color: var(--muted); line-height: 1.25; margin-top: 2px; }
 .mode-card.active .mode-hint { color: var(--blue); opacity: 0.8; }
 @media (max-width: 639px) {
-  .mode-bar { gap: 6px; }
+  .mode-bar { gap: 6px; grid-template-columns: repeat(2, 1fr); }
   .mode-card { padding: 8px 10px; gap: 8px; }
   .mode-card .mode-hint { display: none; }
 }
@@ -630,6 +636,30 @@ input.main-input-line:focus { border-color: var(--blue); }
 .td-new { color: #1a7a45; font-weight: 600; }
 .td-new.unchanged { color: #aaa; font-weight: 400; }
 .td-new.invalid { color: var(--red); font-weight: 400; font-style: italic; }
+#loctree-text { min-height: 190px; white-space: pre; overflow-x: auto; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.lt-label { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lt-label span { min-width: 52px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; background: white; color: var(--text); font-size: 0.74rem; line-height: 1.4; white-space: nowrap; }
+.lb-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.lb-bar select, .lb-row select, .lb-row input { font: inherit; font-size: 0.82rem; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--text); min-width: 0; }
+.lb-bar select { width: 250px; max-width: 100%; }
+.lb-row select:focus, .lb-row input:focus { outline: none; border-color: var(--blue); }
+.lb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid #f2f2f2; }
+.lb-row .lb-name { flex: 1 1 130px; max-width: 260px; }
+.lb-row .lb-num { width: 58px; }
+.lb-row .lb-extra { width: 92px; }
+.lb-row label { font-size: 0.72rem; color: #999; display: inline-flex; align-items: center; gap: 4px; }
+.lb-row .lb-out { flex: 1 1 140px; font-size: 0.76rem; color: #999; overflow-wrap: anywhere; }
+.lb-row .lb-out.err { color: var(--red); }
+.lb-acts { display: inline-flex; gap: 2px; }
+.lb-acts button { border: none; background: #f3f4f6; color: #666; border-radius: 6px; min-width: 28px; height: 28px; padding: 0 7px; cursor: pointer; font-size: 0.76rem; }
+.lb-acts button:hover:not(:disabled) { background: var(--blue-light); color: var(--blue); }
+.lb-acts button:disabled { opacity: 0.35; cursor: default; }
+#loctree-table th, #loctree-table td { white-space: nowrap; text-align: left; }
+#loctree-table .lt-new { color: #1b8a4b; font-weight: 600; }
+#loctree-table .lt-old { color: #999; }
+#loctree-table td:last-child { white-space: normal; }
+#loctree-table .lt-err { color: var(--red); white-space: normal; }
+#loctree-table .lt-warn { color: #b06a00; white-space: normal; }
 #bulk-table td.td-old, #bulk-table td.td-new, #bulk-table td.td-val { white-space: pre-line; }
 .bulk-view-add { max-width: 180px; }
 .bulk-view-x { border: none; background: none; padding: 0 2px; margin-left: 4px; color: #bbb; font-size: 0.9rem; line-height: 1; cursor: pointer; }
@@ -697,6 +727,8 @@ input.main-input-line:focus { border-color: var(--blue); }
 .export-header-opt input { width: 15px; height: 15px; accent-color: var(--blue); }
 #export-settings-status.warn, #import-settings-status.warn { color: var(--orange); }
 .import-loc-field { max-width: 560px; }
+.loc-field-note { font-size: 0.7rem; color: #aaa; min-height: 1.2em; padding-left: 2px; margin-top: 3px; overflow-wrap: anywhere; }
+.loc-field-note.err { color: var(--red); }
 .collapse-head {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
   background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit;
@@ -845,7 +877,7 @@ select {
     </button>
   </div>
 </div>
-<!-- Module selector: three cards, the active one highlighted -->
+<!-- Module selector: four cards, the active one highlighted -->
 <nav class="mode-bar" aria-label="Module">
   <button type="button" class="mode-card active" onclick="switchTab('import')" id="tab-btn-import">
     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -858,6 +890,10 @@ select {
   <button type="button" class="mode-card" onclick="switchTab('export')" id="tab-btn-export">
     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
     <span style="min-width:0"><span class="mode-title">Export</span><span class="mode-hint">Item data to Excel or CSV</span></span>
+  </button>
+  <button type="button" class="mode-card" onclick="switchTab('locations')" id="tab-btn-locations">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 3H4v5h5V3zm11 6h-6v5h6V9zm0 8h-6v5h6v-5zM6.5 8v11.5H14M6.5 11.5H14"/></svg>
+    <span style="min-width:0"><span class="mode-title">Locations</span><span class="mode-hint">Create a location tree</span></span>
   </button>
 </nav>
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -900,9 +936,10 @@ select {
     <p class="modal-desc" style="margin-top:0">All imported items are placed in this location. Leave empty for the workspace root.</p>
     <div class="settings-field import-loc-field">
       <div class="loc-input-row">
-        <input type="text" id="import-location-id" autocomplete="off" spellcheck="false"
-          placeholder="Browse to pick a location, or paste its ID"
-          oninput="document.getElementById('import-location-name').textContent=''">
+        <input type="hidden" id="import-location-id">
+          <input type="text" id="import-location-text" autocomplete="off" spellcheck="false"
+            placeholder="Name, path or ID"
+            oninput="locFieldInput('import')" onchange="locFieldResolve('import')">
         <button class="btn-loc-browse" onclick="openLocPicker('import')" type="button">
           <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="8" stroke-width="2"/>
@@ -911,7 +948,7 @@ select {
           Browse
         </button>
       </div>
-      <div id="import-location-name" style="font-size:0.78rem;font-weight:600;color:var(--blue);min-height:1.1em;padding-left:2px;margin-top:2px;"></div>
+      <div id="import-location-note" class="loc-field-note"></div>
     </div>
     </div>
   </div>
@@ -1122,11 +1159,12 @@ select {
 
     <div class="bulk-fields" id="bulk-fields-move" style="display:none">
       <div class="settings-field">
-        <label for="bulk-location-id">Target location</label>
+        <label for="bulk-location-text">Target location</label>
         <div class="loc-input-row">
-          <input type="text" id="bulk-location-id" autocomplete="off" spellcheck="false"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            oninput="document.getElementById('bulk-location-name').textContent='';bulkRenderTable()">
+          <input type="hidden" id="bulk-location-id">
+          <input type="text" id="bulk-location-text" autocomplete="off" spellcheck="false"
+            placeholder="Name, path or ID"
+            oninput="locFieldInput('bulk')" onchange="locFieldResolve('bulk')">
           <button class="btn-loc-browse" onclick="openLocPicker('bulk')" type="button">
             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" stroke-width="2"/>
@@ -1135,7 +1173,7 @@ select {
             Browse
           </button>
         </div>
-        <div id="bulk-location-name" style="font-size:0.78rem;font-weight:600;color:var(--blue);min-height:1.1em;padding-left:2px;margin-top:2px;"></div>
+        <div id="bulk-location-note" class="loc-field-note"></div>
       </div>
     </div>
 
@@ -1178,6 +1216,89 @@ select {
       <table class="results-table" id="bulk-table" style="display:none">
         <thead><tr id="bulk-table-head"></tr></thead>
         <tbody id="bulk-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODULE D: LOCATIONS
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div id="section-locations" style="width:100%;max-width:90vw;display:none;flex-direction:column;gap:0">
+
+  <div class="card input-card">
+    <label class="field-label" for="loctree-location-text">1 · Parent location <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+    <p class="modal-desc" style="margin-top:0">The new locations are created below this location. Leave empty for the workspace root.</p>
+    <div class="settings-field import-loc-field">
+      <div class="loc-input-row">
+        <input type="hidden" id="loctree-location-id">
+          <input type="text" id="loctree-location-text" autocomplete="off" spellcheck="false"
+            placeholder="Name, path or ID"
+            oninput="locFieldInput('loctree')" onchange="locFieldResolve('loctree')">
+        <button class="btn-loc-browse" onclick="openLocPicker('loctree')" type="button">
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" stroke-width="2"/>
+            <path d="M21 21l-4.35-4.35" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Browse
+        </button>
+      </div>
+      <div id="loctree-location-note" class="loc-field-note"></div>
+    </div>
+  </div>
+
+  <div class="card input-card">
+    <div class="section-row">
+      <label class="field-label">2 · Location list</label>
+      <div class="seg-toggle">
+        <button type="button" id="loctree-seg-builder" onclick="locBuildMode('builder')">Builder</button>
+        <button type="button" id="loctree-seg-text" onclick="locBuildMode('text')">Text or Excel</button>
+      </div>
+    </div>
+    <div id="loctree-builder">
+      <div class="lb-bar">
+        <select id="lb-example" onchange="locBuildExample(this.value); this.value=''" aria-label="Add an example"></select>
+        <select id="lb-all-style" onchange="locBuildAll('style', this.value); this.value=''" aria-label="Numbering for all rows"></select>
+        <select id="lb-all-hash" onchange="locBuildAll('hash', this.value); this.value=''" aria-label="# before the number for all rows"></select>
+      </div>
+      <div id="lb-rows"></div>
+      <div class="hint-row">
+        <button class="btn-add-col" onclick="locBuildAdd()" type="button">+ Location</button>
+        <span class="hint-text" id="lb-total"></span>
+      </div>
+    </div>
+    <div id="loctree-textpane" style="display:none">
+    <textarea id="loctree-text" class="main-input" oninput="locTreeChanged()"
+      placeholder="One location per line, indent for sub-locations:&#10;&#10;Freezer #01..02&#10;  Shelf #01..05&#10;Fridge #01&#10;  Shelf #01..04"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+    <div class="bulk-examples">
+      <div>Indent with spaces or tabs, write paths such as <code>Room 1 / Freezer 1 / Shelf 1</code> (spaces around the slash), or paste Excel columns (one level per column).</div>
+      <div><code>Shelf 1..5</code> creates Shelf 1 to Shelf 5 in every location above it; <code>01..12</code> and <code>A..D</code> work too.</div>
+      <div>Label lines: <code>|</code> starts the next line, <code>||</code> goes to line 3, e.g. <code>Freezer #1..3 || -20C</code>.</div>
+    </div>
+    </div>
+    <div class="hint-row">
+      <button class="btn-confirm" onclick="locTreePreview()" id="loctree-preview-btn" type="button">Preview</button>
+      <span id="loctree-status" class="hint-text"></span>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-header" style="flex-wrap:wrap">
+      <div class="left">3 · Preview &amp; create <span class="count-badge" id="loctree-count-badge">0</span></div>
+      <div class="table-actions">
+        <button class="btn btn-fluics" id="loctree-create-btn" onclick="locTreeCreate()" type="button" disabled>Create locations</button>
+        <button class="btn btn-danger" onclick="locTreeClear()" type="button">Clear</button>
+      </div>
+    </div>
+    <div style="padding:6px 16px 0;font-size:0.72rem;color:#aaa;line-height:1.5">
+      Existing locations are kept and reused. The API cannot archive locations, so check the tree before creating it. <span id="loctree-hint" class="bulk-apply-hint"></span>
+    </div>
+    <div class="empty-state" id="loctree-empty-state">Preview the list above to see the location tree</div>
+    <div class="table-scroll">
+      <table class="results-table" id="loctree-table" style="display:none">
+        <thead><tr><th>Location</th><th>Printed label</th><th>Status</th></tr></thead>
+        <tbody id="loctree-table-body"></tbody>
       </table>
     </div>
   </div>
@@ -1278,7 +1399,7 @@ select {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const APP_VERSION = '1.6';
+const APP_VERSION = '1.7';
 // Footer links; an empty value hides the link.
 const APP_LINKS = {
   repo:     'https://github.com/FLUICS-com/api-studio',   // source code and latest release (GitHub)
@@ -1286,8 +1407,9 @@ const APP_LINKS = {
   apiDocs:  'https://devapi.fluics.com/swagger/index.html?urls.primaryName=V2.0-PUBLIC',
 };
 
-const LABEL_ALLOWED_RE  = /[^A-Za-z0-9 ]/g;
-const SPECIAL_CHARS_RE  = /[^A-Za-z0-9 ]/;   // same without g flag, safe for repeated .test()
+// Label lines: letters, digits, space and § * & / ( ) % " + - # _
+const LABEL_ALLOWED_RE  = /[^A-Za-z0-9 §*&\/()%"+\-#_]/g;
+const SPECIAL_CHARS_RE  = /[^A-Za-z0-9 §*&\/()%"+\-#_]/;   // same without g flag, safe for repeated .test()
 const LABEL_SEG_MAX    = 8;
 
 const TYPE_OPTIONS = [
@@ -1341,6 +1463,9 @@ const UI_HANDLERS = {
   bulkDeleteRow: i => bulkDeleteRow(i),
   bulkRemoveViewCol: k => bulkRemoveViewCol(k),
   bulkOpenItem: (ev, i) => bulkOpenItem(ev, i),
+  locBuildSet: (i, f, v) => locBuildSet(i, f, v),
+  locBuildAct: (i, a) => locBuildAct(i, a),
+  locBuildKey: (ev, i) => { if (ev.key === 'Enter') { ev.preventDefault(); locBuildAct(i, 'next'); } },
   openLocPicker: target => openLocPicker(target === 'export-ps' || target === 'bulk-ps' ? target : 'bulk'),
 };
 ['click', 'change', 'input', 'keydown'].forEach(type => document.addEventListener(type, ev => {
@@ -1719,9 +1844,11 @@ async function psResolveLoc(token, text) {
     psLocRows = locBuildRows(await fcGetAllLocations(token));
     psLocRows.forEach(r => locPaths.set(r.id, r.path));
   }
-  const l = text.toLowerCase().split('/').map(x => x.trim()).filter(Boolean).join(' / ');
-  let hits = psLocRows.filter(r => r.path.toLowerCase() === l);
-  if (!hits.length) hits = psLocRows.filter(r => r.name.toLowerCase() === l);
+  // slashes compare with any spacing: a name can contain one ("A/B")
+  const norm = v => v.toLowerCase().split('/').map(x => x.trim()).filter(Boolean).join(' / ');
+  const l = norm(text);
+  let hits = psLocRows.filter(r => norm(r.path) === l);
+  if (!hits.length) hits = psLocRows.filter(r => norm(r.name) === l);
   if (hits.length === 1) return hits[0].id;
   if (!hits.length) throw new Error(`No location named "${text}". Check the spelling or use Browse.`);
   throw new Error(`${hits.length} locations are named "${text}" (${hits.slice(0, 3).map(r => r.path).join('; ')}${hits.length > 3 ? '; …' : ''}). Type the full path or use Browse.`);
@@ -1952,13 +2079,13 @@ async function fcGetLocations(token) {
   return Array.isArray(data) ? data : (data.items || data.objects || data.data || []);
 }
 
-async function fcCreateObject(token, fullName, label, locationId) {
-  const body = { fullName, objectType: 'item', stored: new Date().toISOString() };
+async function fcCreateObject(token, fullName, label, locationId, objectType = 'item') {
+  const body = { fullName, objectType, stored: new Date().toISOString() };
   if (label.l1) body.labelLine1 = label.l1;
   if (label.l2) body.labelLine2 = label.l2;
   if (label.l3) body.labelLine3 = label.l3;
   if (locationId) body.locationId = locationId;
-  const r = await fetch(proxyBase() + '/v2/objects', {
+  const r = await fcFetchRetry(proxyBase() + '/v2/objects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
     body: JSON.stringify(body),
@@ -1970,11 +2097,12 @@ async function fcCreateObject(token, fullName, label, locationId) {
   const data = await r.json();
   const id = data.id ?? data.objectId ?? data.guid ?? data.uuid;
   if (!id) throw new Error('No object ID in API response');
+  const lines = 'labelLine1' in data ? [data.labelLine1, data.labelLine2, data.labelLine3].map(v => String(v ?? '').trim()) : null;
   const createdProps = new Set(
     (data.properties || []).filter(p => p.stringValue || p.intValue != null || p.decimalValue != null || p.dateTimeValue)
       .map(p => (p.name || '').toLowerCase())
   );
-  return { id, createdProps };
+  return { id, createdProps, lines };
 }
 
 async function fcFindPropId(token, objectId, propName) {
@@ -2172,7 +2300,7 @@ function switchTab(tab) {
     selectTab = tab;
   }
   localStorage.setItem('fcm_active_tab', tab);
-  for (const t of ['import', 'export', 'bulk']) {
+  for (const t of ['import', 'export', 'bulk', 'locations']) {
     document.getElementById('section-' + t).style.display = tab === t ? 'flex' : 'none';
     document.getElementById('tab-btn-' + t).classList.toggle('active', tab === t);
   }
@@ -2244,11 +2372,15 @@ function resetWorkspaceData() {
   }
   exportRows = [];
   bulkItems = [];
+  locTreeNodes = [];
+  locTreeMade = [];
   try {
+    // another workspace: the parent location belongs to the old one, the typed list stays
+    locFieldSet('loctree', '', '');
+    locTreeChanged();
     importInitSettings(); importRenderTable(); importRenderMap();
     exportRenderTable();
-    document.getElementById('bulk-location-id').value = '';
-    document.getElementById('bulk-location-name').textContent = '';
+    locFieldSet('bulk', '', '');
     psLocRows = null;
     ['export', 'bulk'].forEach(pre => { const el = psEl(pre, 'loc'); el.value = ''; delete el.dataset.id; el.dispatchEvent(new Event('change')); });
     bulkRenderTable();
@@ -2947,7 +3079,7 @@ function importRenderTable() {
         importMakeLabelSeg(item.id, 'l1', l1) + `<span class="label-dot">·</span>` +
         importMakeLabelSeg(item.id, 'l2', l2) + `<span class="label-dot">·</span>` +
         importMakeLabelSeg(item.id, 'l3', l3) +
-        (hasSpecial ? `<span class="label-warn-icon" title="Special characters were removed from this name">⚠</span>` : '') +
+        (hasSpecial ? `<span class="label-warn-icon" title="Characters that cannot be printed were removed from this name">⚠</span>` : '') +
       `</div></td>`;
     const extraCells = expCols.slice(1).map((col, ci) => {
       const val = item.cells[ci + 1] !== undefined ? item.cells[ci + 1] : '';
@@ -3093,8 +3225,7 @@ function importInitSettings() {
   const cfg = loadImportCfg();
   document.getElementById('import-delimiter').value = cfg.delimiter || 'tab';
   document.getElementById('import-date-format').value = cfg.dateFormat || 'YYYY-MM-DD';
-  document.getElementById('import-location-id').value = cfg.locationId || '';
-  document.getElementById('import-location-name').textContent = cfg.locationName || '';
+  locFieldSet('import', cfg.locationId || '', cfg.locationName || '');
   document.getElementById('import-settings-status').textContent = '';
   updateImportSettingsSummary();
 }
@@ -3135,7 +3266,7 @@ function importSettingsChanged() {
   cfg.delimiter   = document.getElementById('import-delimiter').value;
   cfg.dateFormat  = document.getElementById('import-date-format').value;
   cfg.locationId  = document.getElementById('import-location-id').value.trim() || null;
-  cfg.locationName= document.getElementById('import-location-name').textContent.trim() || null;
+  cfg.locationName= locFieldName('import') || null;
   saveImportCfg(cfg);
   status.textContent = 'Saved';
   updateImportSettingsSummary();
@@ -3149,9 +3280,62 @@ function importSettingsChanged() {
 
 // ── Location picker ────────────────────────────────────────────────────────────
 
-// target: 'import' (Import Settings) or 'bulk' (Bulk Edit move action).
-// Both write into '<target>-location-id' / '<target>-location-name'.
+// target: 'import' (Import Settings), 'bulk' (Bulk Edit move action) or 'loctree' (Locations).
+// All use a location field: see locFieldSet.
 let locPickerTarget = 'import';
+
+// Location field of a target: '<t>-location-text' shows the name or path, the hidden
+// '<t>-location-id' holds the ID and '<t>-location-note' shows it in grey. Text typed
+// by hand goes into the ID as it is (and is rejected there unless it is an ID) until
+// locFieldResolve has found the location, so a typo never means "workspace root".
+function locFieldSet(t, id, name) {
+  document.getElementById(t + '-location-id').value = id;
+  const el = document.getElementById(t + '-location-text');
+  el.value = name || id;
+  el.title = el.value;
+  locFieldNote(t, name && isUUID(id) ? id : '');
+}
+function locFieldNote(t, text, err) {
+  const el = document.getElementById(t + '-location-note');
+  el.textContent = text;
+  el.classList.toggle('err', !!err);
+}
+function locFieldName(t) {
+  const id = document.getElementById(t + '-location-id').value, text = document.getElementById(t + '-location-text').value.trim();
+  return text !== id ? text : '';
+}
+function locFieldChanged(t) {
+  if (t === 'bulk') bulkRenderTable();
+  if (t === 'import') importScheduleSave();
+  if (t === 'loctree') locTreeChanged();
+}
+function locFieldInput(t) {
+  const el = document.getElementById(t + '-location-text');
+  document.getElementById(t + '-location-id').value = el.value.trim();
+  el.title = '';
+  locFieldNote(t, '');
+  locFieldChanged(t);
+}
+// Looks up a typed name or path, or the name of a pasted ID.
+async function locFieldResolve(t) {
+  const idEl = document.getElementById(t + '-location-id'), text = idEl.value;
+  if (!text || locFieldName(t)) return;   // empty, or picked already
+  if (t === 'bulk' && text.toLowerCase() === 'workspace root') { locFieldSet(t, BULK_ROOT, 'Workspace root'); locFieldChanged(t); return; }
+  locFieldNote(t, 'Looking up the location…');
+  try {
+    const token = await fcLogin();
+    const rows = locBuildRows(await fcGetAllLocations(token));
+    rows.forEach(r => locPaths.set(r.id, r.path));
+    if (idEl.value !== text) return;      // changed meanwhile
+    psLocRows = rows;
+    const id = isUUID(text) ? text.toLowerCase() : await psResolveLoc(token, text);
+    if (idEl.value !== text) return;
+    const row = rows.find(r => r.id.toLowerCase() === id.toLowerCase());
+    if (!row) { locFieldNote(t, 'No location with this ID was found.', true); return; }
+    locFieldSet(t, row.id, row.path);
+    locFieldChanged(t);
+  } catch (e) { if (idEl.value === text) locFieldNote(t, e.message, true); }
+}
 
 // Builds the location tree from the flat list (each location's locationId is its
 // parent) and renders it depth-first, children sorted by name. Rows carry their
@@ -3264,11 +3448,9 @@ function selectLocation(id, name) {
     closeLocPicker();
     return;
   }
-  document.getElementById(locPickerTarget + '-location-id').value = id;
-  document.getElementById(locPickerTarget + '-location-name').textContent = name;
+  locFieldSet(locPickerTarget, id, name);
   closeLocPicker();
-  if (locPickerTarget === 'bulk') bulkRenderTable();
-  if (locPickerTarget === 'import') importScheduleSave();
+  locFieldChanged(locPickerTarget);
 }
 function closeLocPicker() { document.getElementById('loc-overlay').classList.remove('active'); }
 document.getElementById('loc-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeLocPicker(); });
@@ -3354,6 +3536,7 @@ async function importToFluics() {
   const cols = importCurrentCols();
   const dateFmt = cfg.dateFormat || 'YYYY-MM-DD';
   const problems = importPreflight(cols, dateFmt);
+  if (cfg.locationId && !isUUID(cfg.locationId)) problems.unshift(`Location: "${cfg.locationId}" was not found. Use Browse to pick it, or empty the field.`);
   if (problems.length) {
     alert(`Nothing was imported. Fix these values first:\n\n${problems.slice(0, 12).join('\n')}` +
       (problems.length > 12 ? `\n… and ${problems.length - 12} more` : ''));
@@ -4246,7 +4429,7 @@ function bulkSetAction(key) {
     set:  'Items that don’t have this property yet get it automatically. Existing values are overwritten. Multi-value lists are replaced, not appended.',
     clear: 'Empties the value (and unit) of this property. The property itself stays on the item: the FLUICS API cannot delete properties yet. Items without the property are skipped.',
     move: 'Moves are sent in batches of 100. If any item in a batch cannot be moved, none of that batch is moved. A series and one of its items cannot be moved together.',
-    label: 'Sets the printed label lines (up to 8 letters, digits or spaces each). Empty fields keep the current line; Clear line empties it. Line 4 cannot be changed through the API. Changes are sent in batches of 100, all-or-nothing per batch; reprint the labels afterwards.',
+    label: 'Sets the printed label lines (up to 8 characters each: letters, digits, spaces and § * & / ( ) % " + - # _). Empty fields keep the current line; Clear line empties it. Line 4 cannot be changed through the API. Changes are sent in batches of 100, all-or-nothing per batch; reprint the labels afterwards.',
   }[bulkAction] || '';
   bulkRenderActions();
   bulkOnTypeChange();
@@ -4402,7 +4585,7 @@ function bulkTarget() {
   return {
     id,
     name: id === BULK_ROOT ? 'Workspace root'
-      : document.getElementById('bulk-location-name').textContent || locPaths.get(id) || id,
+      : locFieldName('bulk') || locPaths.get(id) || id,
   };
 }
 
@@ -4953,6 +5136,571 @@ function bulkInitFromCfg() {
   bulkSetAction(bulkAction);
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// MODULE D: LOCATIONS
+// ══════════════════════════════════════════════════════════════════════════════
+
+const LOCTREE_MAX = 1000;
+let locTreeNodes = [];      // [{name, depth, parent (index or -1), label, id?, status, msg}], parents first
+let locTreeReady = false;   // preview checked against the workspace and still matching the inputs
+let locTreeMade = [];       // locations created in the last minute, which the search may not list yet
+let locTreeRun = 0;         // increased on every input change, so a slow check cannot show old results
+
+// "Shelf 1..5" → Shelf 1 … Shelf 5. Numbers keep leading zeros (01..12), single
+// letters count too (A..D). Only the first range of a name is expanded.
+function locTreeExpand(name) {
+  // braces mark a range next to letters or digits: Rack{A..D}, R2{1..3}
+  const br = /^(.*?)\{\s*(\w+)\s*\.\.\s*(\w+)\s*\}(.*)$/.exec(name);
+  if (br) return locTreeExpand(`${br[2]}..${br[3]}`).map(v => br[1] + v + br[4]);
+  let m = /^(.*?)(\d+)\s*\.\.\s*(\d+)(?!\d)(.*)$/.exec(name);
+  if (m) {
+    const a = +m[2], b = +m[3];
+    if (b < a) throw new Error(`"${name}": the range must count up`);
+    if (b - a >= LOCTREE_MAX) throw new Error(`"${name}": the range is too long (at most ${LOCTREE_MAX})`);
+    const width = /^0\d/.test(m[2]) ? m[2].length : 0;
+    return Array.from({ length: b - a + 1 }, (_, i) => m[1] + String(a + i).padStart(width, '0') + m[4]);
+  }
+  m = /^(.*?)(?<![\p{L}\p{N}])([A-Za-z])\s*\.\.\s*([A-Za-z])(?![\p{L}\p{N}])(.*)$/u.exec(name);
+  if (m) {
+    const a = m[2].charCodeAt(0), b = m[3].charCodeAt(0);
+    if (b < a || (m[2] < 'a') !== (m[3] < 'a')) throw new Error(`"${name}": the range must count up`);
+    return Array.from({ length: b - a + 1 }, (_, i) => m[1] + String.fromCharCode(a + i) + m[4]);
+  }
+  if (name.includes('..')) throw new Error(`"${name}": the range is not understood (examples: 1..5, 01..12, A..D)`);
+  return [name];
+}
+
+// Reads the list into nodes, parents before children. A cell's column decides its
+// level; a cell can itself hold a path ("Room 1 / Freezer 1", spaces around the slash:
+// "A/B" is a name). The same name below the
+// same parent is one location. Children of a range belong to each of its locations.
+function locTreeParse(text) {
+  const nodes = [], seen = new Map();
+  const add = (spec, parent) => {
+    const name = locTreePlain(spec);
+    if (!name) throw new Error('no name');
+    const key = parent + '|' + name.toLowerCase();
+    if (seen.has(key)) return seen.get(key);
+    if (nodes.length >= LOCTREE_MAX) throw new Error(`More than ${LOCTREE_MAX} locations. Split the list.`);
+    nodes.push({ name, spec, parent, depth: parent < 0 ? 0 : nodes[parent].depth + 1 });
+    seen.set(key, nodes.length - 1);
+    return nodes.length - 1;
+  };
+  const stack = [];   // [{col, ids}] open levels, outermost first
+  String(text).replace(/ /g, ' ').split(/\r?\n/).forEach((line, li) => {
+    if (!line.trim()) return;
+    try {
+      const lead = /^[ \t]*/.exec(line)[0];
+      const tabs = lead.split('\t').length - 1;
+      let col = tabs * 8 + (lead.length - tabs);
+      line.slice(lead.length).split('\t').forEach((raw, ci) => {
+        if (ci) col += 8;
+        const cell = raw.trim().replace(/^[-*•]\s+/, '');
+        if (!cell) return;
+        while (stack.length && stack[stack.length - 1].col >= col) stack.pop();
+        let parents = stack.length ? stack[stack.length - 1].ids : [-1];
+        const parts = cell.split(/\s\/(?=\s|$)/).map(x => x.trim().replace(/\s+/g, ' ')).filter(Boolean);
+        if (!parts.length) throw new Error('no name');
+        for (const part of parts) {
+          const names = locTreeExpand(part);
+          parents = parents.flatMap(p => names.map(n => add(n, p)));
+        }
+        stack.push({ col, ids: parents });
+      });
+    } catch (e) { throw new Error(`Line ${li + 1}: ${e.message}`); }
+  });
+  // depth-first order for the preview and the run
+  const kids = new Map();
+  nodes.forEach((n, i) => { if (!kids.has(n.parent)) kids.set(n.parent, []); kids.get(n.parent).push(i); });
+  const out = [];
+  const walk = (i, parent) => {
+    out.push({ name: nodes[i].name, spec: nodes[i].spec, depth: nodes[i].depth, parent });
+    const at = out.length - 1;
+    (kids.get(i) || []).forEach(k => walk(k, at));
+  };
+  (kids.get(-1) || []).forEach(i => walk(i, -1));
+  return out;
+}
+
+const locTreeLines = l => [l.l1, l.l2, l.l3].filter(Boolean);
+// The label takes 3 x 8 printable characters: false when it cannot hold the whole name.
+// The complete name is then also written to the property "Full name", as the API does.
+const locTreeFits = n => locTreeLines(n.label).join('').replace(/ /g, '') === n.name.replace(/ /g, '');
+// Line breaks for the label: "|" starts the next line, "||" goes to line 3 ("Room 1 || -20C").
+// Without them the words are distributed as in Import.
+const locTreeBreaks = spec => spec.split(/\s*(\|[\s|]*)/).map(x => x.trim()).map((x, i) => i % 2 ? (x.replace(/\s/g, '').length > 1 ? '||' : '|') : x);
+const locTreePlain = spec => spec.includes('|') ? locTreeBreaks(spec).filter((x, i) => i % 2 === 0 && x).join(' ') : spec;
+function locTreeLabel(spec) {
+  if (!spec.includes('|')) return deriveLabel(spec);
+  const lines = [];
+  locTreeBreaks(spec).forEach((x, i) => {
+    if (i % 2) { if (x === '||') while (lines.length && lines.length < 2) lines.push(''); }
+    else lines.push(...locTreeLines(deriveLabel(x)));
+  });
+  return { l1: lines[0] || '', l2: lines[1] || '', l3: lines[2] || '' };
+}
+// The three lines as boxes, empty lines included.
+const locTreeLabelHtml = l => l ? `<span class="lt-label">${[l.l1, l.l2, l.l3].map(v => `<span>${escHtml(v) || '&nbsp;'}</span>`).join('')}</span>` : '';
+
+/**
+ * Compares the nodes with the workspace's locations and sets id/status of each:
+ * exists, new, or error. A node created in this session keeps its id even when
+ * the search does not list it yet.
+ */
+function locTreeMatch(nodes, locs, rootId) {
+  const norm = v => String(v ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const kids = new Map();
+  locs.forEach(o => {
+    const p = o.locationId || o.LocationId || '';
+    if (!kids.has(p)) kids.set(p, []);
+    const props = o.properties || o.Properties || [];
+    const full = props.find(x => norm(x.name || x.Name) === 'full name');
+    kids.get(p).push({
+      id: o.id || o.Id, name: norm(objDisplayName(o)),
+      lines: [o.labelLine1, o.labelLine2, o.labelLine3].map(norm).filter(Boolean).join('|'),
+      full: norm(full && (full.stringValue || full.StringValue)),
+    });
+  });
+  const taken = new Map();
+  nodes.forEach(n => {
+    n.label = locTreeLabel(n.spec);
+    n.msg = '';
+    if (n.made) { n.status = n.fullPending || n.linesPending ? 'full' : 'done'; return; }
+    n.id = null;
+    const lines = norm(locTreeLines(n.label).join('|'));
+    if (!lines) { n.status = 'error'; n.msg = 'The name needs at least one letter or digit for the label.'; return; }
+    const parentId = n.parent < 0 ? rootId || '' : nodes[n.parent].id;
+    const below = n.parent >= 0 && !parentId ? [] : kids.get(parentId) || [];
+    const name = norm(n.name), fits = locTreeFits(n);
+    let hits = below.filter(k => k.full ? k.full === name : k.name === name);
+    if (!hits.length) hits = below.filter(k => k.lines === lines && (fits ? !k.full || k.full === name : !k.full));
+    if (hits.length > 1) { n.status = 'error'; n.msg = `${hits.length} locations with this name exist here already.`; return; }
+    if (hits.length) { n.status = 'exists'; n.id = hits[0].id; }
+    else n.status = n.parent >= 0 && ['error', 'blocked'].includes(nodes[n.parent].status) ? 'blocked' : 'new';
+    const key = n.parent + '|' + lines;
+    if (taken.has(key) && n.id && nodes[taken.get(key)].id === n.id) { n.status = 'error'; n.id = null; n.msg = `Matches the same existing location as "${nodes[taken.get(key)].name}".`; return; }
+    if (taken.has(key)) n.msg = `Same printed label as "${nodes[taken.get(key)].name}".`;
+    else taken.set(key, nodes.indexOf(n));
+    if (!fits && n.status === 'new') {
+      const gone = [...new Set(n.name.match(LABEL_ALLOWED_RE) || [])].join(' ');
+      n.msg = (gone ? `Not printed: ${gone}. ` : 'Too long for the label. ') + 'The complete name is kept in the property "Full name". ' + n.msg;
+    }
+  });
+}
+
+// All active locations, or an error. fcGetAllLocations falls back to a partial
+// list, which here would create existing locations a second time.
+async function locTreeLoad(token, onProgress) {
+  const { objects, count } = await fcGridifySearch(token, 'objectType=Location,isArchived=false', onProgress);
+  if (objects.length < count) throw new Error(`Only ${objects.length} of ${count} locations could be read`);
+  const known = new Set(objects.map(o => o.id || o.Id));
+  locTreeMade = locTreeMade.filter(m => Date.now() - m.at < 60000);
+  return [...objects.filter(notArchived), ...locTreeMade.filter(m => !known.has(m.id))];
+}
+
+function locTreeParentId() { return document.getElementById('loctree-location-id').value.trim(); }
+function locTreeCheckParent(locs, id) {
+  if (id && !locs.some(o => (o.id || o.Id) === id)) throw new Error('The parent location was not found in this workspace. Use Browse to pick it.');
+}
+
+// ── Tree builder ──
+// Rows describe the list: {depth, name, count, style, from, pad, sep}. The list text stays the
+// source for Preview and Create; the builder writes it and reads it back (locBuildRead).
+const LB_STYLES = [['num', '1, 2, 3'], ['pad', '01, 02, 03'], ['up', 'A, B, C'], ['low', 'a, b, c'], ['none', 'No number']];
+// What stands before the number: a line choice plus an optional "#". The other ones can
+// come from a text list; they are kept, but offered only on a row that has one.
+const LB_LINES = [[' ', 'Number: same line'], [' | ', 'Number: own line']];
+const LB_LINES_TEXT = [[' || ', 'Number: line 3'], ['-', 'Number: Name-1'], ['', 'Number: Name1']];
+const lbLine = sep => sep.replace('#', '');
+const lbHash = sep => sep.includes('#');
+const lbSep = (line, hash) => hash ? (line.endsWith(' ') ? line : ' ') + '#' : line;
+const LB_BRKS = [[' ', 'Text: same line'], ['|', 'Text: next line'], ['||', 'Text: line 3']];   // where the extra text goes on the label
+const LB_EXAMPLES = [
+  ['Freezer with shelves', 'Freezer | -20C | #01\n  Shelf #01..05'],
+  ['Fridge with shelves', 'Fridge | +4C | #01\n  Shelf #01..04'],
+  ['Safety cabinet with shelves', 'Safety cabinet #01\n  Shelf #01..04'],
+  ['Cabinet with drawers', 'Cabinet #01\n  Drawer #01..06'],
+  ['Nitrogen tank with columns and boxes', 'LN2 tank #01\n  Column #01..06\n    Box #01..05'],
+];
+let lbRows = [], lbMode = 'builder', lbText = null;   // lbText: list text the rows stand for
+
+const lbLetters = st => st === 'up' || st === 'low';
+const lbNew = depth => ({ depth, name: '', count: 1, style: 'pad', from: 1, pad: 2, sep: ' #', extra: '', brk: ' ' });
+// from counts 1.. for letters too (1 = A); the count stays within the alphabet and the limit
+function lbClamp(r) {
+  const letters = lbLetters(r.style);
+  r.from = Math.max(letters ? 1 : 0, Math.min(letters ? 26 : 99999, Math.trunc(Number(r.from)) || 0));
+  r.count = Math.max(1, Math.min(letters ? 27 - r.from : LOCTREE_MAX, Math.trunc(Number(r.count)) || 1));
+  if (r.style === 'none') r.count = 1;
+  if (r.style === 'pad') r.pad = Math.max(2, r.pad);
+}
+const lbMark = (r, n) => lbLetters(r.style) ? String.fromCharCode((r.style === 'up' ? 64 : 96) + n)
+  : r.style === 'pad' ? String(n).padStart(r.pad, '0') : String(n);
+const lbTail = r => r.extra.trim() ? (r.brk === ' ' ? ' ' : ` ${r.brk} `) + r.extra.trim() : '';
+function lbLabel(r) { return lbHead(r) + lbTail(r); }
+function lbHead(r) {
+  const name = r.name.trim();
+  if (r.style === 'none') return name;
+  const a = lbMark(r, r.from);
+  if (r.count === 1) return name + r.sep + a;
+  const range = a + '..' + lbMark(r, r.from + r.count - 1);
+  return name + r.sep + (r.sep === '' && (lbLetters(r.style) || /\d$/.test(name)) ? `{${range}}` : range);
+}
+// The k-th name of a row with its line breaks
+const lbOne = (r, k) => r.name.trim() + (r.style === 'none' ? '' : r.sep + lbMark(r, r.from + k)) + lbTail(r);
+function lbExample(r) {
+  if (!r.name.trim()) return '';
+  if (r.style === 'none') return locTreePlain(r.name.trim() + lbTail(r));
+  const n = k => locTreePlain(lbOne(r, k));
+  return r.count === 1 ? n(0) : r.count === 2 ? `${n(0)}, ${n(1)}` : `${n(0)}, ${n(1)} … ${n(r.count - 1)}`;
+}
+// Rows without a name are skipped while empty; with sub-locations they need one.
+const lbNameless = i => !lbRows[i].name.trim() && !!lbRows[i + 1] && lbRows[i + 1].depth > lbRows[i].depth;
+const locBuildProblem = () => lbMode === 'builder' && lbRows.some((r, i) => lbNameless(i)) ? 'A location with sub-locations needs a name.' : '';
+const lbToText = () => lbRows.filter(r => r.name.trim()).map(r => '  '.repeat(r.depth) + lbLabel(r)).join('\n');
+
+// Reads one name as the builder writes it; anything else stays a plain name.
+function lbParseName(text, depth) {
+  const whole = { ...lbNew(depth), name: text, style: 'none' };
+  // number on its own line, the name may have line breaks too: "Freezer | -20C | #01"
+  const o = /^(.*[^\s|])\s*(\|(?:\s*\|)?)\s*(#?)(\d{1,5}|[A-Za-z])(?:\s*\.\.\s*(\d{1,5}|[A-Za-z]))?(?:\s*(\|(?:\s*\|)?)\s*([^|]*[^|\s]))?$/.exec(text);
+  if (o && !(o[7] && (/\.\.|\s\/\s/.test(o[7]) || o[7].length > 24))) {
+    const r = lbNumbered({ ...whole, name: o[1], sep: ` ${o[2].replace(/\s/g, '')} ${o[3]}`, extra: o[7] || '', brk: o[6] ? o[6].replace(/\s/g, '') : ' ' }, o[4], o[5] || o[4], text);
+    if (r) return r;
+  }
+  // extra text behind a line break, or behind a range
+  const t = /^([^|]*[^|\s])\s*(\|(?:\s*\|)?)\s*([^|]*[^|\s])$/.exec(text);
+  const u = t ? null : /^([^|]*?\.\.\s*(?:\d+|[A-Za-z])\}?)\s+([^|\s][^|]*)$/.exec(text);
+  if (!t && !u) return text.includes('|') ? whole : lbParseHead(text, depth);
+  const head = lbParseHead((t || u)[1], depth), extra = t ? t[3] : u[2];
+  if (/\.\.|\s\/\s/.test(extra) || extra.length > 24 || (u && head.style === 'none')) return whole;
+  return { ...head, extra, brk: t ? t[2].replace(/\s/g, '') : ' ' };
+}
+function lbParseHead(text, depth) {
+  const r = { ...lbNew(depth), name: text, style: 'none' };
+  let m = /^(.*[^\s-])( #| |-|)\{?(\d+|[A-Za-z])\s*\.\.\s*(\d+|[A-Za-z])\}?$/.exec(text);
+  // the number must not swallow part of it: "Shelf 12..15"
+  if (m && /\d$/.test(m[1]) && /^\d/.test(m[3]) && m[2] === '' && !text.includes('{')) m = /^(.*?[^\s\d-])( #| |-|)(\d+)\s*\.\.\s*(\d+)$/.exec(text);
+  const single = m ? null : /^(.*[^\s-])( #| |-)(\d{1,5}|[A-Za-z])$/.exec(text);
+  const hit = m || single;
+  if (!hit || /\s\/\s|\.\./.test(hit[1])) return r;
+  const a = hit[3], b = m ? m[4] : a;
+  return lbNumbered({ ...r, name: hit[1], sep: hit[2] }, a, b, text) || r;
+}
+// Row c counting from a to b, or null when it would not give exactly the locations of the text.
+function lbNumbered(c, a, b, text) {
+  if (/^\d/.test(a) && /^\d/.test(b)) { c.style = /^0\d/.test(a) ? 'pad' : 'num'; c.pad = a.length; c.from = +a; c.count = +b - +a + 1; }
+  else if (/^[A-Z]$/.test(a) && /^[A-Z]$/.test(b)) { c.style = 'up'; c.from = a.charCodeAt(0) - 64; c.count = b.charCodeAt(0) - a.charCodeAt(0) + 1; }
+  else if (/^[a-z]$/.test(a) && /^[a-z]$/.test(b)) { c.style = 'low'; c.from = a.charCodeAt(0) - 96; c.count = b.charCodeAt(0) - a.charCodeAt(0) + 1; }
+  else return null;
+  const all = x => JSON.stringify(locTreeExpand(x).map(v => [locTreePlain(v), locTreeLabel(v)]));
+  try { return c.count >= 1 && all(text) === all(lbLabel(c)) ? c : null; } catch { return null; }
+}
+
+// List text to rows. Excel columns become one row per location. Throws what the list parser throws.
+function locBuildRead(text) {
+  const nodes = locTreeParse(text);
+  const lines = text.replace(/ /g, ' ').split(/\r?\n/).filter(l => l.trim());
+  if (lines.some(l => l.trim().includes('\t'))) return nodes.map(n => lbParseName(n.spec, n.depth));
+  const stack = [];
+  return lines.map(l => {
+    const lead = /^[ \t]*/.exec(l)[0], tabs = lead.split('\t').length - 1, col = tabs * 8 + lead.length - tabs;
+    while (stack.length && stack[stack.length - 1] >= col) stack.pop();
+    stack.push(col);
+    return lbParseName(l.trim().replace(/^[-*•]\s+/, '').replace(/\s+/g, ' '), stack.length - 1);
+  });
+}
+
+function locBuildMode(mode) {
+  const el = document.getElementById('loctree-text');
+  if (mode === 'builder' && el.value !== lbText) {
+    try { lbRows = locBuildRead(el.value); lbText = el.value; }
+    catch (e) { document.getElementById('loctree-status').textContent = 'The Builder cannot read the list yet: ' + e.message; return; }
+  }
+  lbMode = mode;
+  document.getElementById('loctree-seg-builder').classList.toggle('active', mode === 'builder');
+  document.getElementById('loctree-seg-text').classList.toggle('active', mode === 'text');
+  document.getElementById('loctree-builder').style.display = mode === 'builder' ? '' : 'none';
+  document.getElementById('loctree-textpane').style.display = mode === 'text' ? '' : 'none';
+  locTreeSave();
+  if (mode === 'builder') locBuildRender();
+}
+
+// After a change: write the list text and refresh the totals.
+function locBuildWrite() {
+  const el = document.getElementById('loctree-text');
+  lbText = el.value = lbToText();
+  locTreeChanged();
+  locBuildTotals();
+}
+function locBuildTotals() {
+  lbRows.forEach((r, i) => {
+    const out = document.getElementById('lb-out-' + i);
+    if (!out) return;
+    out.innerHTML = lbNameless(i) ? 'Enter a name' : escHtml(lbExample(r)) + (r.name.trim() ? ' ' + locTreeLabelHtml(locTreeLabel(lbOne(r, r.count - 1))) : '');
+    out.classList.toggle('err', lbNameless(i));
+    document.getElementById('lb-brk-' + i).style.display = r.extra.trim() ? '' : 'none';
+  });
+  let msg;
+  try { const n = locTreeParse(lbToText()).length; msg = n ? `${n} location${n !== 1 ? 's' : ''} in total` : ''; } catch (e) { msg = e.message; }
+  document.getElementById('lb-total').textContent = locBuildProblem() || msg;
+}
+function locBuildRender(focus) {
+  if (!lbRows.length) lbRows = [lbNew(0)];
+  const opts = (list, cur) => list.map(([v, l]) => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${escHtml(l)}</option>`).join('');
+  document.getElementById('lb-rows').innerHTML = lbRows.map((r, i) => {
+    const num = r.style !== 'none', up = i > 0 && r.depth <= lbRows[i - 1].depth;
+    const act = (a, txt, title, off) => `<button type="button" title="${title}" aria-label="${title}" ${off ? 'disabled ' : ''}${uiOn('click', 'locBuildAct', i, a)}>${txt}</button>`;
+    return `<div class="lb-row" style="padding-left:${Math.min(r.depth, 8) * 22}px">` +
+      `<input type="text" class="lb-name" id="lb-name-${i}" data-clr="1" placeholder="Name, e.g. Freezer" title="A | in the name starts a new label line, e.g. Freezer | -20C" autocomplete="off" spellcheck="false" value="${escAttr(r.name)}" ${uiOn('input', 'locBuildSet', i, 'name', { $: 'value' })} ${uiOn('keydown', 'locBuildKey', { $: 'event' }, i)}>` +
+      `<select aria-label="Numbering" ${uiOn('change', 'locBuildSet', i, 'style', { $: 'value' })}>${opts(LB_STYLES, r.style)}</select>` +
+      (num ? `<label>Count <input type="number" class="lb-num" data-clr="1" min="1" value="${r.count}" ${uiOn('change', 'locBuildSet', i, 'count', { $: 'value' })}></label>` +
+        `<label>From <input type="text" class="lb-num" data-clr="1" maxlength="5" value="${escAttr(lbMark(r, r.from))}" ${uiOn('change', 'locBuildSet', i, 'from', { $: 'value' })}></label>` +
+        `<label title="# before the number"><input type="checkbox" ${lbHash(r.sep) ? 'checked ' : ''}${uiOn('change', 'locBuildSet', i, 'hash', { $: 'checked' })}> #</label>` +
+        `<select aria-label="Line of the number on the label" ${uiOn('change', 'locBuildSet', i, 'line', { $: 'value' })}>${opts([...LB_LINES, ...LB_LINES_TEXT.filter(([v]) => v === lbLine(r.sep))], lbLine(r.sep))}</select>` : '') +
+      `<input type="text" class="lb-extra" data-clr="1" maxlength="24" placeholder="Extra text" title="Text after the name and number, e.g. -20C" aria-label="Extra text" autocomplete="off" spellcheck="false" value="${escAttr(r.extra)}" ${uiOn('input', 'locBuildSet', i, 'extra', { $: 'value' })} ${uiOn('keydown', 'locBuildKey', { $: 'event' }, i)}>` +
+      `<select id="lb-brk-${i}" aria-label="Extra text on the label" title="Where the extra text goes on the label" ${uiOn('change', 'locBuildSet', i, 'brk', { $: 'value' })}>${opts(LB_BRKS, r.brk)}</select>` +
+      `<span class="lb-acts">${act('out', '←', 'One level up', r.depth === 0)}${act('in', '→', 'One level down', !up)}${act('sub', '+ Sub', 'Add a sub-location')}${act('copy', '⧉', 'Duplicate with its sub-locations')}${act('del', '×', 'Remove with its sub-locations')}</span>` +
+      `<span class="lb-out" id="lb-out-${i}"></span></div>`;
+  }).join('');
+  locBuildTotals();
+  if (focus != null) { const el = document.getElementById('lb-name-' + focus); if (el) el.focus(); }
+}
+function locBuildSet(i, field, v) {
+  const r = lbRows[i];
+  if (!r) return;
+  if (field === 'name' || field === 'extra') { r[field] = v; locBuildWrite(); return; }   // no re-render while typing
+  if (field === 'style') {
+    r.style = LB_STYLES.some(([k]) => k === v) ? v : 'num';   // the position stays: 3 becomes 03 or C
+  } else if (field === 'from') {
+    const t = String(v).trim();
+    if (lbLetters(r.style)) { if (/^[A-Za-z]$/.test(t)) r.from = t.toUpperCase().charCodeAt(0) - 64; }
+    else if (/^\d+$/.test(t)) { r.from = +t; if (r.style === 'pad') r.pad = Math.max(2, t.length); }
+  } else if (field === 'hash') r.sep = lbSep(lbLine(r.sep), v === true);
+  else if (field === 'line') r.sep = lbSep(LB_LINES.some(([k]) => k === v) ? v : lbLine(r.sep), lbHash(r.sep));
+  else if (field === 'brk') r.brk = LB_BRKS.some(([k]) => k === v) ? v : ' ';
+  else if (field === 'count') r.count = v;
+  lbClamp(r);
+  locBuildWrite();
+  locBuildRender();
+}
+// A row with all its sub-locations: rows i .. end - 1.
+function lbEnd(i) { let e = i + 1; while (e < lbRows.length && lbRows[e].depth > lbRows[i].depth) e++; return e; }
+function locBuildAct(i, a) {
+  const r = lbRows[i];
+  if (!r) return;
+  const end = lbEnd(i);
+  let focus = null;
+  if (a === 'out' && r.depth > 0) {
+    // moved behind its parent's other sub-locations, so those keep their parent
+    let pi = i - 1;
+    while (lbRows[pi].depth >= r.depth) pi--;
+    const pend = lbEnd(pi), block = lbRows.splice(i, end - i);
+    block.forEach(x => x.depth--);
+    lbRows.splice(pend - block.length, 0, ...block);
+  }
+  else if (a === 'in' && i > 0 && r.depth <= lbRows[i - 1].depth) lbRows.slice(i, end).forEach(x => x.depth++);
+  else if (a === 'sub') { lbRows.splice(end, 0, lbNew(r.depth + 1)); focus = end; }
+  else if (a === 'next') { lbRows.splice(end, 0, lbNew(r.depth)); focus = end; }
+  else if (a === 'copy') {
+    const copy = lbRows.slice(i, end).map(x => ({ ...x }));
+    if (copy[0].style === 'none') copy[0].name = copy[0].name.trim() + ' copy';
+    else { copy[0].from += copy[0].count; lbClamp(copy[0]); }   // Freezer 1..2 is followed by Freezer 3..4
+    lbRows.splice(end, 0, ...copy);
+    focus = end;
+  }
+  else if (a === 'del') lbRows.splice(i, end - i);
+  locBuildWrite();
+  locBuildRender(focus);
+}
+function locBuildAdd() { lbRows.push(lbNew(0)); locBuildWrite(); locBuildRender(lbRows.length - 1); }
+function locBuildAll(field, v) {
+  lbRows.forEach(r => {
+    if (r.style === 'none') return;
+    if (field === 'style') r.style = v; else r.sep = lbSep(lbLine(r.sep), v === 'with');
+    lbClamp(r);
+  });
+  locBuildWrite();
+  locBuildRender();
+}
+function locBuildExample(i) {
+  const ex = i !== '' && LB_EXAMPLES[+i];
+  if (!ex) return;
+  lbRows = [...lbRows.filter((r, k) => r.name.trim() || lbNameless(k)), ...locBuildRead(ex[1])];
+  locBuildWrite();
+  locBuildRender();
+}
+function locBuildInit(mode) {
+  const set = (id, first, list) => { document.getElementById(id).innerHTML = `<option value="">${escHtml(first)}</option>` + list.map(([v, l]) => `<option value="${escAttr(v)}">${escHtml(l)}</option>`).join(''); };
+  set('lb-example', '+ Add example', LB_EXAMPLES.map(([l], i) => [String(i), l]));
+  set('lb-all-style', 'Numbering for all rows', LB_STYLES.filter(([v]) => v !== 'none'));
+  set('lb-all-hash', '# for all rows', [['with', 'With #'], ['without', 'Without #']]);
+  locBuildMode('text');
+  if (mode !== 'text') locBuildMode('builder');
+}
+
+function locTreeInit() {
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem('fcm_loctree') || '{}') || {}; } catch {}
+  document.getElementById('loctree-text').value = cfgStr(c.text);
+  locFieldSet('loctree', cfgStr(c.locationId), cfgStr(c.locationName));
+  locTreeRender();
+  locBuildInit(c.mode);
+}
+
+function locTreeSave() {
+  localStorage.setItem('fcm_loctree', JSON.stringify({
+    mode: lbMode, text: document.getElementById('loctree-text').value, locationId: locTreeParentId(),
+    locationName: locFieldName('loctree'),
+  }));
+}
+
+function locTreeChanged() {
+  locTreeReady = false;
+  locTreeRun++;
+  locTreeSave();
+  document.getElementById('loctree-status').textContent = '';
+  locTreeRender();
+}
+
+function locTreeClear() {
+  locTreeNodes = [];
+  document.getElementById('loctree-text').value = '';
+  lbRows = [];
+  lbText = '';
+  locTreeChanged();
+  if (lbMode === 'builder') locBuildRender();
+}
+
+async function locTreePreview() {
+  const status = document.getElementById('loctree-status');
+  const run = ++locTreeRun;
+  locTreeReady = false;
+  locTreeNodes = [];
+  let nodes;
+  try {
+    if (locBuildProblem()) throw new Error(locBuildProblem());
+    nodes = locTreeParse(document.getElementById('loctree-text').value);
+  }
+  catch (e) { status.textContent = e.message; locTreeRender(); return; }
+  if (!nodes.length) { status.textContent = 'Enter at least one location.'; locTreeRender(); return; }
+  nodes.forEach(n => { n.label = locTreeLabel(n.spec); n.status = ''; n.msg = ''; });
+  locTreeNodes = nodes;
+  locTreeRender();
+  const rootId = locTreeParentId();
+  try {
+    status.textContent = 'Checking existing locations…';
+    const token = await fcLogin();
+    const locs = await locTreeLoad(token, n => { if (run === locTreeRun) status.textContent = `Checking existing locations… ${n}`; });
+    if (run !== locTreeRun) return;
+    locTreeCheckParent(locs, rootId);
+    locTreeMatch(nodes, locs, rootId);
+    locTreeReady = true;
+    status.textContent = '';
+  } catch (e) {
+    if (run === locTreeRun) status.textContent = 'Not checked against the workspace: ' + e.message;
+  }
+  locTreeRender();
+}
+
+function locTreeRender() {
+  const nodes = locTreeNodes;
+  const open = nodes.filter(n => ['new', 'failed', 'full'].includes(n.status)).length;
+  const errors = nodes.filter(n => n.status === 'error').length;
+  const btn = document.getElementById('loctree-create-btn');
+  btn.disabled = !locTreeReady || errors > 0 || !open;
+  btn.textContent = locTreeReady && open ? `Create ${open} location${open !== 1 ? 's' : ''}` : 'Create locations';
+  document.getElementById('loctree-count-badge').textContent = nodes.length;
+  document.getElementById('loctree-empty-state').style.display = nodes.length ? 'none' : '';
+  document.getElementById('loctree-table').style.display = nodes.length ? 'table' : 'none';
+  document.getElementById('loctree-hint').textContent =
+    !nodes.length ? '' :
+    !locTreeReady ? 'Click Preview to check the list.' :
+    errors ? `${errors} location${errors !== 1 ? 's' : ''} must be fixed first.` :
+    !open ? 'All locations exist.' : '';
+  const text = { new: 'New', exists: 'Exists', done: 'Created', full: n => n.linesPending ? 'Created, line breaks missing' : 'Created, Full name missing', failed: 'Failed', error: 'Error', blocked: 'Waiting for its parent' };
+  const cls = { new: 'lt-new', done: 'lt-new', failed: 'lt-err', error: 'lt-err', full: 'lt-warn' };
+  document.getElementById('loctree-table-body').innerHTML = nodes.map(n =>
+    `<tr><td style="padding-left:${14 + n.depth * 22}px">${escHtml(n.name)}</td>` +
+    `<td>${locTreeLabelHtml(n.label)}</td>` +
+    `<td><span class="${cls[n.status] || 'lt-old'}">${escHtml((typeof text[n.status] === 'function' ? text[n.status](n) : text[n.status]) || 'Not checked')}</span>` +
+    (n.msg ? ` <span class="${cls[n.status] === 'lt-err' ? 'lt-err' : 'lt-warn'}">${escHtml(n.msg)}</span>` : '') + '</td></tr>').join('');
+}
+
+async function locTreeCreate() {
+  if (!locTreeReady || !locTreeNodes.length) return;
+  const nodes = locTreeNodes, rootId = locTreeParentId();
+  openImportProgress(nodes.length, 'Create locations in FLUICS CONNECT');
+  const line = document.getElementById('import-progress-line');
+  const stop = msg => {
+    line.textContent = msg;
+    document.getElementById('import-close-btn').disabled = false;
+    locTreeRender();
+  };
+  let token;
+  try {
+    line.textContent = 'Authenticating…';
+    token = await fcLogin();
+    line.textContent = 'Checking existing locations…';
+    const locs = await locTreeLoad(token);
+    locTreeCheckParent(locs, rootId);
+    locTreeMatch(nodes, locs, rootId);
+  } catch (e) { stop('Nothing was created: ' + e.message); return; }
+  if (nodes.some(n => n.status === 'error')) { stop('Nothing was created: some locations must be fixed first.'); return; }
+
+  const path = n => (n.parent < 0 ? '' : path(nodes[n.parent]) + ' / ') + n.name;
+  let ok = 0, failed = 0, lost = '';
+  for (let i = 0; i < nodes.length && !lost; i++) {
+    const n = nodes[i];
+    setImportProgressUI(i + 1, nodes.length, 'Locations');
+    if (n.status === 'exists' || n.status === 'done') continue;
+    const parentId = n.parent < 0 ? rootId || null : nodes[n.parent].id;
+    if (n.parent >= 0 && !parentId) { n.status = 'blocked'; n.msg = ''; continue; }
+    try {
+      if (!n.made) {
+        const want = [n.label.l1, n.label.l2, n.label.l3];
+        const fullName = want.map(x => x.padEnd(LABEL_SEG_MAX)).join('').trimEnd();
+        const made = await fcCreateObject(token, fullName, n.label, parentId, 'Location');
+        n.id = made.id;
+        n.made = true;
+        // chosen line breaks: checked in the answer, set explicitly when the server split differently
+        n.linesPending = n.spec.includes('|') && !(made.lines && made.lines.every((v, k) => v === want[k]));
+        locTreeMade.push({ at: Date.now(), id: n.id, locationId: parentId, labelLine1: n.label.l1, labelLine2: n.label.l2, labelLine3: n.label.l3,
+          properties: locTreeFits(n) ? [] : [{ name: 'Full name', stringValue: n.name }] });
+        n.fullPending = !locTreeFits(n);
+      }
+      if (n.linesPending) {
+        n.status = 'full';
+        let err = '';
+        await bulkPatchChunks(token, [n], 'Label lines', () => ({ labelLine1: n.label.l1, labelLine2: n.label.l2, labelLine3: n.label.l3 || null }),
+          () => ({}), (_, good, why) => { if (!good) err = why; });
+        if (err) throw new Error('Line breaks not set: ' + err);
+        n.linesPending = false;
+      }
+      if (n.fullPending) {
+        n.status = 'full';
+        await fcAddProperty(token, n.id, { name: 'Full name', type: 3 }, n.name);
+        n.fullPending = false;
+      }
+      n.status = 'done'; n.msg = '';
+      ok++;
+      addImportLogEntry(path(n), true, '');
+    } catch (e) {
+      failed++;
+      n.msg = e.message;
+      if (!n.made) n.status = 'failed';
+      addImportLogEntry(path(n), false, e.message);
+      // No answer, or a server error: it is unknown whether the location was created.
+      // Stop here; the next Create reads the workspace again before it continues.
+      if (!n.made && (e instanceof TypeError || /\((5\d\d)/.test(e.message) || /No object ID/.test(e.message))) lost = e.message;
+    }
+  }
+  psLocRows = null;
+  finalizeImport(ok, failed, 'created');
+  if (lost) line.textContent = `Stopped after ${ok} created: ${lost}. Check the connection, then click Create again; existing locations are found and kept.`;
+  locTreeRender();
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 // ── Config export / import ─────────────────────────────────────────────────────
@@ -5097,10 +5845,11 @@ document.getElementById('footer-links').innerHTML = [
 renderGridifyHelp();
 initClearButtons();
 bulkInitFromCfg();
+locTreeInit();
 showWorkspaceName();
 
 const _savedTab = localStorage.getItem('fcm_active_tab');
-if (_savedTab === 'export' || _savedTab === 'bulk') switchTab(_savedTab);
+if (_savedTab === 'export' || _savedTab === 'bulk' || _savedTab === 'locations') switchTab(_savedTab);
 else document.getElementById('import-paste').focus();
 
 // ── Version check ────────────────────────────────────────────────────────────

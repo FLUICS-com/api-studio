@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Studio locations test</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #222; }
+  .pass { color: #0a7d32; } .fail { color: #b00020; font-weight: 600; }
+  iframe { width: 100%; height: 360px; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>RestfulAPI Studio locations test</h1>
+<p>Runs the Locations tab against a mocked API (no network, fake credentials). Serve the repository
+root on a spare port (<code>python3 tools/dev_server.py . 8771</code>) and open
+<code>/tests/locations-test.html</code>; the test overwrites this origin's <code>fcm_*</code> data.</p>
+<ol id="out"></ol>
+<p id="summary">Running…</p>
+<iframe id="app" title="App under test"></iframe>
+<script>
+const results = [];
+function check(name, ok, detail = '') {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'}: ${name}${detail ? ' (' + detail + ')' : ''}`;
+  document.getElementById('out').appendChild(li);
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function loadApp() {
+  return new Promise(res => {
+    const f = document.getElementById('app');
+    f.onload = () => res(f.contentWindow);
+    f.src = '../fc-studio.html?t=' + Date.now();
+  });
+}
+const KEYS = ['fcm_creds', 'fcm_import', 'fcm_export', 'fcm_ws_props', 'fcm_bulk', 'fcm_import_items', 'fcm_loctree', 'fcm_active_tab'];
+
+(async () => {
+  KEYS.forEach(k => localStorage.removeItem(k));
+  const w = await loadApp();
+  await wait(300);
+  const $ = id => w.document.getElementById(id);
+  const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
+  let db = [], posts = [], props = [], patches = [], patchFails = false, squeeze = false, failName = '', failMode = '', hideNew = false, next = 100, searchFails = false, propFails = false;
+  const loc = (id, parent, l1, l2 = '', l3 = '', properties = []) => ({ id: uuid(id), locationId: parent, objectType: 'Location', labelLine1: l1, labelLine2: l2, labelLine3: l3, properties });
+  const json = (status, body) => new w.Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  w.fetch = async (url, opts = {}) => {
+    const u = decodeURIComponent(String(url)), path = u.replace(/^.*?(\/v2\/)/, '/v2/').split(/[?&]/)[0];
+    const body = opts.body ? JSON.parse(opts.body) : null;
+    if (path === '/v2/auth/login') return json(200, { accessToken: 'token' });
+    if (path === '/v2/search/advanced') {
+      if (searchFails) return json(500, { message: 'simulated' });
+      const page = +(/Page=(\d+)/.exec(u)[1]), list = hideNew ? db.filter(o => !o.fresh) : db;
+      return json(200, { data: list.slice((page - 1) * 50, page * 50), count: list.length });
+    }
+    if (path === '/v2/objects' && opts.method === 'POST') {
+      posts.push(body);
+      if (body.fullName.replace(/ +/g, ' ') === failName && failMode === '403') return json(403, { message: 'not allowed' });
+      if (squeeze) body.fullName = body.fullName.replace(/ +/g, ' ');   // a server that splits differently
+      const o = { id: uuid(next++), locationId: body.locationId || null, objectType: 'Location', fresh: true, properties: [],
+        labelLine1: body.fullName.slice(0, 8).trim(), labelLine2: body.fullName.slice(8, 16).trim(), labelLine3: body.fullName.slice(16, 24).trim() };
+      db.push(o);
+      if (body.fullName.replace(/ +/g, ' ') === failName && failMode === 'lost') throw new w.TypeError('Failed to fetch');
+      return json(200, { id: o.id, properties: [], labelLine1: o.labelLine1, labelLine2: o.labelLine2, labelLine3: o.labelLine3 });
+    }
+    if (path === '/v2/objects/bulk-edit') {
+      if (patchFails) return json(400, { errorMessage: 'simulated' });
+      patches.push(...body.objects); body.objects.forEach(x => Object.assign(db.find(o => o.id === x.id), x)); return json(200, { isSuccess: true });
+    }
+    if (path === '/v2/properties' && opts.method === 'POST') { if (propFails) return json(500, { message: 'simulated' }); props.push(body); return json(200, {}); }
+    return json(200, {});
+  };
+  localStorage.setItem('fcm_creds', JSON.stringify({ keyId: 'test-key', secret: 'test-secret' }));
+  const preview = async (text, parent = '') => { $('loctree-text').value = text; w.locFieldSet('loctree', parent, ''); w.locTreeChanged(); await w.locTreePreview(); };
+  const nodes = () => w.eval('locTreeNodes');
+  const reset = () => { db = []; posts = []; props = []; patches = []; patchFails = false; squeeze = false; failName = ''; hideNew = false; searchFails = false; propFails = false; w.eval('locTreeMade = []'); };
+  const paths = t => { const n = w.locTreeParse(t); const p = x => (x.parent < 0 ? '' : p(n[x.parent]) + '/') + x.name; return n.map(p).join(' '); };
+  const err = t => { try { w.locTreeParse(t); return ''; } catch (e) { return e.message; } };
+  const TREE = 'Room 1\n  Freezer 1..2\n    Shelf 1..5\n  Freezer 3\n    Shelf 1..6\n  Fridge 1\n  Safety cabinet 1..2\n    Shelf 1..4';
+
+  // Parser
+  check('example has 31 locations', w.locTreeParse(TREE).length === 31);
+  check('paths and repeated parents merge', paths('R / F1 / S1\nR / F1 / S2\nr / F2') === 'R R/F1 R/F1/S1 R/F1/S2 R/F2');
+  check('Excel columns, filled or empty parents', paths('R\tF1\tS1\n\t\tS2\n\tF2\tS1\nR\tF3') === 'R R/F1 R/F1/S1 R/F1/S2 R/F2 R/F2/S1 R/F3', paths('R\tF1\tS1\n\t\tS2\n\tF2\tS1\nR\tF3'));
+  check('child below a path', paths('R / F1\n  S1') === 'R R/F1 R/F1/S1');
+  check('leading zeros and letters', paths('A 08..10\nB A..C') === 'A 08 A 09 A 10 B A B B B C', paths('A 08..10\nB A..C'));
+  check('bullets are dropped, -80 is kept', paths('- R\n  - Freezer -80') === 'R R/Freezer -80');
+  check('bad ranges are rejected with the line', /^Line 2.*count up/.test(err('A\nB 5..1')) && /not understood/.test(err('A x1..')) && /too long/.test(err('A 1..99999')));
+  check('more than 1000 locations rejected', /More than 1000/.test(err('A 1..40\n  B 1..40')));
+
+  check('a slash without spaces belongs to the name', w.locTreeParse('A/B / C').map(n => n.name).join('|') === 'A/B|C');
+
+  // Create
+  await preview(TREE);
+  check('preview creates nothing, offers 31', posts.length === 0 && $('loctree-create-btn').textContent === 'Create 31 locations' && !$('loctree-create-btn').disabled);
+  await w.locTreeCreate();
+  check('31 location posts', posts.length === 31 && posts.every(p => p.objectType === 'Location'));
+  const byId = new Map(db.map(o => [o.id, o]));
+  check('every parent was created first', posts.every((p, i) => i === 0 ? !p.locationId : byId.has(p.locationId) && db.indexOf(byId.get(p.locationId)) < i));
+  const count = n => db.filter(o => byId.get(o.locationId) && [byId.get(o.locationId).labelLine1, byId.get(o.locationId).labelLine2].join(' ').trim() === n).length;
+  check('shelves per freezer', count('Freezer 1') === 5 && count('Freezer 2') === 5 && count('Freezer 3') === 6 && count('Fridge 1') === 0);
+  await preview(TREE);
+  check('second preview: all exist', nodes().every(n => n.status === 'exists') && $('loctree-create-btn').disabled);
+  hideNew = true; await preview(TREE);
+  check('not listed by the search yet: still found', nodes().every(n => n.status === 'exists'));
+
+  // Below a parent, partly existing
+  reset(); db = [loc(1, null, 'Room', '1'), loc(2, uuid(1), 'Freezer', '1')];
+  await preview('Freezer 1..2\n  Shelf 1', uuid(1));
+  check('existing ones reused', nodes().map(n => n.status).join() === 'exists,new,new,new');
+  await w.locTreeCreate();
+  check('placed below existing and new parents', posts.length === 3 && posts[0].locationId === uuid(2) && posts[1].locationId === uuid(1));
+  await preview('X', uuid(77));
+  check('unknown parent blocks', $('loctree-create-btn').disabled && /not found/.test($('loctree-status').textContent));
+  w.locFieldSet('loctree', '', ''); w.locTreeChanged();
+  check('a change after the preview blocks Create', $('loctree-create-btn').disabled);
+
+  // Failures
+  reset(); failName = 'F 1'; failMode = '403';
+  await preview('R\n  F 1..2\n    S 1..2'); await w.locTreeCreate();
+  check('failed parent: children not created, others go on', posts.length === 5 && nodes().map(n => n.status).join() === 'done,failed,blocked,blocked,done,done,done', nodes().map(n => n.status).join());
+  failName = ''; posts = []; await w.locTreeCreate();
+  check('second run creates only the missing 3', posts.length === 3 && db.length === 7);
+  reset(); failName = 'F 1'; failMode = 'lost';
+  await preview('R\n  F 1..2\n    S 1..2'); await w.locTreeCreate();
+  check('lost answer stops the run', posts.length === 2);
+  failName = ''; await w.locTreeCreate();
+  check('continued without a duplicate', db.length === 7 && posts.length === 7);
+  reset(); searchFails = true; await preview('R');
+  check('no check possible: Create stays off', $('loctree-create-btn').disabled && posts.length === 0);
+  reset(); await preview('R'); searchFails = true; await w.locTreeCreate();
+  check('check fails at Create: nothing created', posts.length === 0);
+
+  // Location field: name shown, ID behind it
+  reset(); db = [loc(1, null, 'Room', '1'), loc(2, uuid(1), 'Freezer', '1')];
+  const type = async (t, v) => { $(t + '-location-text').value = v; w.locFieldInput(t); await w.locFieldResolve(t); };
+  for (const t of ['import', 'bulk', 'loctree']) {
+    await type(t, 'room 1 / freezer 1');
+    check(t + ': typed path gives name and ID', $(t + '-location-text').value === 'Room 1 / Freezer 1' && $(t + '-location-id').value === uuid(2) && $(t + '-location-note').textContent === uuid(2));
+    await type(t, uuid(1));
+    check(t + ': pasted ID shows the name', $(t + '-location-text').value === 'Room 1' && $(t + '-location-id').value === uuid(1));
+    await type(t, 'Nowhere');
+    check(t + ': unknown name is marked, not taken as root', $(t + '-location-id').value === 'Nowhere' && $(t + '-location-note').classList.contains('err'));
+  }
+  const alerts = []; w.alert = m => alerts.push(m);
+  w.eval(`importItems = [{ id: 1, cells: ['A'], label: deriveLabel('A'), sig: importCurrentSig() }]`);
+  posts = []; await w.importToFluics();
+  check('import stops on an unknown location', posts.length === 0 && /Nowhere/.test(alerts.join()));
+  w.locFieldSet('import', uuid(2), 'Room 1 / Freezer 1'); w.importSettingsChanged(); w.importInitSettings();
+  check('saved and restored with name and ID', $('import-location-text').value === 'Room 1 / Freezer 1' && $('import-location-id').value === uuid(2));
+  await type('bulk', 'Workspace root');
+  check('bulk: workspace root', w.bulkTarget().id === w.eval('BULK_ROOT') && $('bulk-location-note').textContent === '');
+  await type('import', ''); w.importSettingsChanged();
+  check('empty means workspace root', JSON.parse(localStorage.getItem('fcm_import')).locationId === null);
+
+  // Builder
+  reset();
+  const label = t => { const l = w.locTreeLabel(t); return [l.l1, l.l2, l.l3].join('/'); };
+  const clearAll = () => { w.locTreeClear(); w.locBuildMode('builder'); };
+  clearAll();
+  const loadTree = () => { w.locBuildMode('text'); $('loctree-text').value = TREE; w.locTreeChanged(); w.locBuildMode('builder'); };
+  loadTree(); w.locBuildSet(0, 'name', 'Room');
+  check('the tree gives 31 locations in the Builder', $('loctree-text').value === TREE && /31 locations/.test($('lb-total').textContent), $('loctree-text').value);
+  clearAll(); w.locBuildExample('4');
+  check('nitrogen tank: 6 columns with 5 boxes each', /37 locations/.test($('lb-total').textContent));
+  for (let k = 0; k < 5; k++) { clearAll(); w.locBuildExample(String(k)); const a = $('loctree-text').value; check('example ' + (k + 1) + ' is unchanged after reading it back', a && w.eval(`(()=>{const k=lbRows;lbRows=locBuildRead(${JSON.stringify(a)});const t=lbToText();lbRows=k;return t})()`) === a && !$('loctree-text').value.includes('undefined')); }
+  clearAll(); w.locBuildExample('0'); w.locBuildExample('1');
+  check('examples are added one after the other', $('loctree-text').value === 'Freezer | -20C | #01\n  Shelf #01..05\nFridge | +4C | #01\n  Shelf #01..04', $('loctree-text').value);
+  check('temperature on label line 2', label('Freezer | -20C | #01') === 'Freezer/-20C/#01' && label('Fridge | +4C | #01') === 'Fridge/+4C/#01');
+  clearAll(); loadTree(); w.locBuildAll('hash', 'with');
+  check('# for all', /^Room #1\n  Freezer #1\.\.2\n    Shelf #1\.\.5/.test($('loctree-text').value), $('loctree-text').value);
+  w.locBuildAll('style', 'up');
+  check('letters for all', /^Room #A\n  Freezer #A\.\.B\n    Shelf #A\.\.E\n  Freezer #C\n/.test($('loctree-text').value) && /31 locations/.test($('lb-total').textContent));
+  w.locBuildAll('hash', 'without');
+  check('without #', w.locTreeParse($('loctree-text').value).slice(0, 3).map(n => n.name).join() === 'Room A,Freezer A,Shelf A');
+  w.locBuildAll('style', 'pad');
+  check('leading zeros', w.locTreeParse($('loctree-text').value).slice(0, 3).map(n => n.name).join() === 'Room 01,Freezer 01,Shelf 01');
+  clearAll();
+  w.locBuildSet(0, 'name', 'Rack'); w.locBuildSet(0, 'count', '3'); w.locBuildSet(0, 'from', '4');
+  w.locBuildAct(0, 'sub'); w.locBuildSet(1, 'name', 'Box'); w.locBuildSet(1, 'style', 'up'); w.locBuildSet(1, 'count', '99');
+  check('rows by hand, letters stop at Z', $('loctree-text').value === 'Rack #04..06\n  Box #A..Z', $('loctree-text').value);
+  w.locBuildAct(0, 'copy');
+  check('duplicate goes on counting', $('loctree-text').value === 'Rack #04..06\n  Box #A..Z\nRack #07..09\n  Box #A..Z');
+  w.locBuildAct(2, 'in');
+  check('one level down with its sub-locations', $('loctree-text').value === 'Rack #04..06\n  Box #A..Z\n  Rack #07..09\n    Box #A..Z');
+  w.locBuildAct(1, 'out');
+  check('one level up leaves the others with their parent', $('loctree-text').value === 'Rack #04..06\n  Rack #07..09\n    Box #A..Z\nBox #A..Z', $('loctree-text').value);
+  w.locBuildAct(0, 'del');
+  check('remove with sub-locations', $('loctree-text').value === 'Box #A..Z');
+  clearAll(); w.locBuildAct(0, 'sub'); w.locBuildSet(1, 'name', 'Shelf'); await w.locTreePreview();
+  check('parent without a name blocks', /needs a name/.test($('loctree-status').textContent) && $('loctree-create-btn').disabled);
+  clearAll(); w.locBuildMode('text');
+  const odd = 'Freezer -80\n  Rack 12..15\n  A / B\n  R2{1..3}\n    X-01..03\nVitamin C\n  Unit 007';
+  $('loctree-text').value = odd; w.locTreeChanged(); const want = paths(odd);
+  w.locBuildMode('builder'); const r0 = w.eval('lbRows[0]'); w.locBuildSet(0, 'name', r0.name);
+  check('text survives the Builder', paths($('loctree-text').value) === want && r0.name === 'Freezer -80', $('loctree-text').value);
+  w.locBuildMode('text'); $('loctree-text').value = 'R 1\tF 1\tS 1\nR 1\tF 1\tS 2'; w.locTreeChanged(); w.locBuildMode('builder'); w.locBuildSet(0, 'hash', false);
+  check('Excel columns in the Builder', $('loctree-text').value === 'R 1\n  F 1\n    S 1\n    S 2', $('loctree-text').value);
+  w.locBuildMode('text'); $('loctree-text').value = 'A 5..1'; w.locTreeChanged(); w.locBuildMode('builder');
+  check('unreadable text stays in the text view', w.eval('lbMode') === 'text' && /cannot read/.test($('loctree-status').textContent) && $('loctree-text').value === 'A 5..1');
+  $('loctree-text').value = '"><img src=x onerror="top.__hit=1">'; w.locTreeChanged(); w.locBuildMode('builder'); await wait(100);
+  check('names in the Builder are shown as text', !window.__hit && !$('lb-rows').querySelector('img'));
+  w.locBuildMode('text');
+
+  // Line breaks
+  reset();
+  check('line breaks on the label', label('Freezer #1 || -20C') === 'Freezer/#1/-20C' && label('Room 1||-20C') === 'Room 1//-20C' && label('Room 1 | -20C') === 'Room 1/-20C/' && label('A|B|C') === 'A/B/C' && label('Freezer 1') === 'Freezer/1/', [label('Freezer #1 || -20C'), label('Room 1||-20C'), label('Room 1 | -20C'), label('A|B|C')].join(' '));
+  await preview('Room 1..2 || -20C\n  Freezer #1 | -80C\nA|B|C|D'); await w.locTreeCreate();
+  check('created with the empty line, no patch needed', posts[0].fullName === 'Room 1          -20C' && patches.length === 0, posts[0].fullName);
+  check('more than three lines: rest kept in Full name', props.length === 1 && props[0].stringValue === 'A B C D');
+  await preview('Room 1..2 || -20C\n  Freezer #1 | -80C\nA|B|C|D');
+  check('found again', nodes().every(n => n.status === 'exists') && nodes()[0].name === 'Room 1 -20C');
+  reset(); squeeze = true; patchFails = true; await preview('Room 1 || -20C'); await w.locTreeCreate();
+  check('line breaks failed: marked', nodes()[0].status === 'full' && posts.length === 1);
+  patchFails = false; await w.locTreeCreate();
+  check('line breaks set later without a second location', posts.length === 1 && patches.length === 1 && patches[0].labelLine1 === 'Room 1' && patches[0].labelLine2 === '' && patches[0].labelLine3 === '-20C' && nodes()[0].status === 'done');
+  clearAll(); w.locBuildSet(0, 'name', 'Freezer'); w.locBuildSet(0, 'hash', true); w.locBuildSet(0, 'style', 'num'); w.locBuildSet(0, 'count', '3'); w.locBuildSet(0, 'extra', '-20C'); w.locBuildSet(0, 'brk', '||');
+  check('Builder: extra text on line 3', $('loctree-text').value === 'Freezer #1..3 || -20C', $('loctree-text').value);
+  const u = 'Room #02\n  Freezer | -20C | #01\n    Shelf | #01..05';
+  w.locBuildMode('text'); $('loctree-text').value = u; w.locTreeChanged(); w.locBuildMode('builder');
+  const rr = w.eval('lbRows');
+  check('number on its own line is read into the Builder', rr[1].name === 'Freezer | -20C' && rr[1].sep === ' | #' && rr[1].style === 'pad' && rr[2].name === 'Shelf' && rr[2].count === 5, JSON.stringify(rr));
+  w.locBuildSet(2, 'count', '6'); w.locBuildAct(2, 'copy');
+  check('and written back', $('loctree-text').value === u.replace('..05', '..06') + '\n    Shelf | #07..12', $('loctree-text').value);
+  w.locBuildSet(0, 'line', ' | ');
+  check('number on its own line', label(w.locTreeParse($('loctree-text').value)[0].spec) === 'Room/#02/');
+  w.locBuildSet(0, 'hash', false); w.locBuildSet(0, 'line', ' ');
+  check('same line, without #', $('loctree-text').value.startsWith('Room 02\n'));
+  for (const t of ['Shelf | 1..3 | x', 'Shelf || #A..C', 'Room | 1 || -20C', 'A | 1 | 2', 'Freezer #1..3 || -20C', 'Room 1 | -20C', 'Cold room || 4C', 'Rack A..C left', 'Rack{A..C} | x', 'A | B | C', 'A | B 1..3', 'Freezer 1 -20C']) {
+    const back = w.eval(`(()=>{const k=lbRows;lbRows=locBuildRead(${JSON.stringify(t)});const x=lbToText();lbRows=k;return x})()`);
+    check('Builder reads back: ' + t, JSON.stringify(w.locTreeParse(back)) === JSON.stringify(w.locTreeParse(t)), back);
+  }
+  w.locBuildMode('text');
+
+  // Names
+  reset(); propFails = true; await preview('Kühlraum -80 Grad Nord hinten links'); await w.locTreeCreate();
+  check('Full name failed: marked', nodes()[0].status === 'full' && posts.length === 1);
+  propFails = false; await w.locTreeCreate();
+  check('Full name retried without a second location', posts.length === 1 && props.length === 1 && props[0].stringValue === 'Kühlraum -80 Grad Nord hinten links');
+  reset(); db = [loc(1, null, 'Refriger', 'ator'), loc(2, null, 'Rack', '1', '1'), loc(3, null, 'Room', '9'), loc(4, null, 'Room', '9')];
+  await preview('Refrigerator\nRack 11\nRoom 9\n!!!');
+  check('split word found, Rack 11 is not Rack 1 1, doubles and empty labels are errors', nodes().map(n => n.status).join() === 'exists,new,error,error', nodes().map(n => n.status).join());
+  reset(); await preview('Shelf #1\nA§*&/()%\nB"+-_'); await w.locTreeCreate();
+  check('printable special characters stay on the label, no Full name needed', posts.map(p => p.fullName).join('|') === 'Shelf #1|A§*&/()%|B"+-_' && props.length === 0, posts.map(p => p.fullName).join('|'));
+  await preview('Shelf #1\nA§*&/()%\nB"+-_');
+  check('and are found again', nodes().every(n => n.status === 'exists'));
+  reset(); await preview('<img src=x onerror="top.__hit=1">A');
+  await wait(100);
+  check('names are shown as text', !window.__hit && !$('loctree-table-body').querySelector('img'));
+  w.resetWorkspaceData();
+  check('another key clears preview and parent, keeps the list', nodes().length === 0 && $('loctree-location-id').value === '' && $('loctree-text').value !== '');
+
+  KEYS.forEach(k => localStorage.removeItem(k));
+  const failed = results.filter(r => !r).length;
+  document.getElementById('summary').innerHTML = failed
+    ? `<strong class="fail">${failed} of ${results.length} checks failed</strong>`
+    : `<strong class="pass">All ${results.length} checks passed</strong>`;
+  document.title = failed ? 'FAIL' : 'PASS';
+})().catch(e => { check('test ran without errors', false, e.message); document.title = 'FAIL'; });
+</script>
+</body>
+</html>
